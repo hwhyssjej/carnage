@@ -6920,6 +6920,11 @@ html.scr-active #ct-auto-btn { display: none !important; }
    во всю ширину поверх них — читается она всё равно за счёт обводки. */
 @media (max-width: 620px) {
   #scrum-root .scr-column { width: clamp(92px, 32vw, 140px) !important; }
+  /* Реплика стоит по центру кадра, а колонки раньше стояли там же —
+     текст ложился прямо на ракеты с обеих сторон. На телефоне низ
+     кадра пустует, поэтому колонки уводим туда: середина остаётся
+     под реплику. Только для телефона, на компьютере всё как было. */
+  #scrum-root .scr-column { top: 60% !important; transform: none !important; }
   #scrum-root .scr-arrow { --rh: 30px; font-size: 10px !important; }
   #scrum-root .scr-say {
     left: 8px !important;
@@ -10108,10 +10113,14 @@ window.ctRenderLine = function (idx) {
 
   // mode: 'close' — половины съезжаются и кадр остаётся закрытым;
   //       'open'  — кадр открыт занавесом, потом половины разъезжаются.
-  function ctCurtain(title, sub, mode, done) {
+  // silent — занавес без удара молотка: на «ПЕРЕРЫВ» звук лишний,
+  // сцена и так уходит в затемнение.
+  function ctCurtain(title, sub, mode, done, silent) {
     var old = document.getElementById('trial-start-overlay');
     if (old) old.remove();
-    try { var a = new Audio(CT_CURTAIN_SFX); a.volume = 0.7; a.play().catch(function () {}); } catch (e) {}
+    if (!silent) {
+      try { var a = new Audio(CT_CURTAIN_SFX); a.volume = 0.7; a.play().catch(function () {}); } catch (e) {}
+    }
 
     var scene =
       '<div class="tso-inner">' +
@@ -10205,7 +10214,7 @@ window.ctRenderLine = function (idx) {
           window.ctEventRunning = false;
           next();
         }, 1100);
-      });
+      }, id === 'trial-break');
       return;
     }
 

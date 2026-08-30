@@ -2859,10 +2859,14 @@ window.ctRenderLine = function (idx) {
 
   // mode: 'close' — половины съезжаются и кадр остаётся закрытым;
   //       'open'  — кадр открыт занавесом, потом половины разъезжаются.
-  function ctCurtain(title, sub, mode, done) {
+  // silent — занавес без удара молотка: на «ПЕРЕРЫВ» звук лишний,
+  // сцена и так уходит в затемнение.
+  function ctCurtain(title, sub, mode, done, silent) {
     var old = document.getElementById('trial-start-overlay');
     if (old) old.remove();
-    try { var a = new Audio(CT_CURTAIN_SFX); a.volume = 0.7; a.play().catch(function () {}); } catch (e) {}
+    if (!silent) {
+      try { var a = new Audio(CT_CURTAIN_SFX); a.volume = 0.7; a.play().catch(function () {}); } catch (e) {}
+    }
 
     var scene =
       '<div class="tso-inner">' +
@@ -2956,7 +2960,7 @@ window.ctRenderLine = function (idx) {
           window.ctEventRunning = false;
           next();
         }, 1100);
-      });
+      }, id === 'trial-break');
       return;
     }
 

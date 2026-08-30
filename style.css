@@ -6906,6 +6906,11 @@ html.scr-active #ct-auto-btn { display: none !important; }
    во всю ширину поверх них — читается она всё равно за счёт обводки. */
 @media (max-width: 620px) {
   #scrum-root .scr-column { width: clamp(92px, 32vw, 140px) !important; }
+  /* Реплика стоит по центру кадра, а колонки раньше стояли там же —
+     текст ложился прямо на ракеты с обеих сторон. На телефоне низ
+     кадра пустует, поэтому колонки уводим туда: середина остаётся
+     под реплику. Только для телефона, на компьютере всё как было. */
+  #scrum-root .scr-column { top: 60% !important; transform: none !important; }
   #scrum-root .scr-arrow { --rh: 30px; font-size: 10px !important; }
   #scrum-root .scr-say {
     left: 8px !important;
