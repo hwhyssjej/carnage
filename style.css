@@ -6995,6 +6995,27 @@ html.ch-end-on #mute-toggle-btn,
 html.ch-end-on #ct-auto-btn,
 html.ch-end-on tw-sidebar { display: none !important; }
 
+/* Прокрутки нет, значит список обязан помещаться в кадр целиком. Служебные
+   отступы пассажа съедали больше сотни пикселей сверху, и на невысоком
+   окне последние карточки уходили под нижний край — а именно там Кай и
+   Треск. Пока экран зафиксирован, кладём блок отдельным слоем по центру. */
+html.ch-end-on #ch-end {
+  position: fixed !important;
+  inset: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: clamp(10px, 2.5vh, 34px) 12px !important;
+  z-index: 40 !important;
+}
+html.ch-end-on #ch-end .che-grid { width: min(100%, 1000px) !important; }
+/* Низкое окно: карточки ужимаем, иначе четыре ряда всё равно не влезают */
+@media (max-height: 860px) {
+  html.ch-end-on #ch-end .che-card { padding: 6px 12px !important; }
+  html.ch-end-on #ch-end .che-cap { margin-bottom: 10px !important; }
+}
+
 
 #ch-end .che-card {
   position: relative !important;

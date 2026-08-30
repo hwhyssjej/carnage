@@ -7009,6 +7009,27 @@ html.ch-end-on #mute-toggle-btn,
 html.ch-end-on #ct-auto-btn,
 html.ch-end-on tw-sidebar { display: none !important; }
 
+/* Прокрутки нет, значит список обязан помещаться в кадр целиком. Служебные
+   отступы пассажа съедали больше сотни пикселей сверху, и на невысоком
+   окне последние карточки уходили под нижний край — а именно там Кай и
+   Треск. Пока экран зафиксирован, кладём блок отдельным слоем по центру. */
+html.ch-end-on #ch-end {
+  position: fixed !important;
+  inset: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: clamp(10px, 2.5vh, 34px) 12px !important;
+  z-index: 40 !important;
+}
+html.ch-end-on #ch-end .che-grid { width: min(100%, 1000px) !important; }
+/* Низкое окно: карточки ужимаем, иначе четыре ряда всё равно не влезают */
+@media (max-height: 860px) {
+  html.ch-end-on #ch-end .che-card { padding: 6px 12px !important; }
+  html.ch-end-on #ch-end .che-cap { margin-bottom: 10px !important; }
+}
+
 
 #ch-end .che-card {
   position: relative !important;
@@ -10113,8 +10134,8 @@ window.ctRenderLine = function (idx) {
 
   // mode: 'close' — половины съезжаются и кадр остаётся закрытым;
   //       'open'  — кадр открыт занавесом, потом половины разъезжаются.
-  // silent — занавес без удара молотка: на «ПЕРЕРЫВ» звук лишний,
-  // сцена и так уходит в затемнение.
+  // silent — занавес без удара молотка. Молчат «ПЕРЕРЫВ» и «КОНЕЦ»:
+  // обе сцены и так уходят в затемнение. Звучит только «ВОЗОБНОВЛЯЕТСЯ».
   function ctCurtain(title, sub, mode, done, silent) {
     var old = document.getElementById('trial-start-overlay');
     if (old) old.remove();
@@ -10214,7 +10235,7 @@ window.ctRenderLine = function (idx) {
           window.ctEventRunning = false;
           next();
         }, 1100);
-      }, id === 'trial-break');
+      }, id === 'trial-break' || id === 'trial-end');
       return;
     }
 
@@ -15095,8 +15116,9 @@ if (window.initClassTrialDialogue) window.initClassTrialDialogue();
 &lt;script&gt;
 (function () {
   // Список на конец третьей главы. Ушедшие раньше зачёркнуты сразу,
-  // Фусту и Оса — по очереди, уже на глазах у игрока. Сцена идёт молча и
-  // не спеша: ни музыки, ни звуков, экран зафиксирован.
+  // Фусту и Оса — по очереди, уже на глазах у игрока. Звуков зачёркивания
+  // нет, экран зафиксирован; поверх сцены один раз играет тема титров.
+  var CH_END_MUSIC = &#39;https://github.com/hwhyssjej/game-audio/raw/refs/heads/main/New%20Danganronpa%20V3%20O.S.T.%20White%20-%2025.%20Chapter%20End%20Credits.mp3&#39;;
   var STUDENTS = [
     { name: &#39;Юта&#39;,    title: &#39;Абсолютный Акробат&#39; },
     { name: &#39;Стерва&#39;, title: &#39;Абсолютный Косметолог&#39; },
@@ -15111,7 +15133,7 @@ if (window.initClassTrialDialogue) window.initClassTrialDialogue();
     { name: &#39;Кэт&#39;,    title: &#39;Абсолютная Принцесса&#39; },
     { name: &#39;Шин&#39;,    title: &#39;Абсолютный Химик&#39; },
     { name: &#39;Кай&#39;,    title: &#39;Абсолютный Художник&#39; },
-    { name: &#39;Треск&#39;,  title: &#39;Абсолютный ???&#39; }
+    { name: &#39;Треск&#39;,  title: &#39;Абсолютная Горничная&#39; }
   ];
   var DEAD_ALREADY = [&#39;Радуга&#39;, &#39;Чикава&#39;, &#39;Попа&#39;, &#39;Кэт&#39;];
 
@@ -15119,19 +15141,32 @@ if (window.initClassTrialDialogue) window.initClassTrialDialogue();
   if (!grid || grid.dataset.filled === &#39;1&#39;) return;
   grid.dataset.filled = &#39;1&#39;;
 
-  // Сцена молчит: гасим тему и не даём наблюдателю завести её заново.
+  // Прежняя тема уходит в тишину, и только после неё вступают титры —
+  // иначе два трека наложатся друг на друга. Наблюдателю завести тему
+  // заново не даём: до конца главы играет только эта запись, без повтора.
   window.nsdHush = true;
+  function chEndCredits() {
+    try {
+      var cr = new Audio(CH_END_MUSIC);
+      cr.loop = false;
+      cr.volume = 0.6;
+      cr.play().catch(function () {});
+    } catch (e) {}
+  }
   try {
     var bg = window.bgAudio;
-    if (bg) {
+    if (bg &amp;&amp; !bg.paused &amp;&amp; bg.volume &gt; 0) {
       var from = bg.volume, t0 = Date.now();
       var fade = setInterval(function () {
         var q = Math.min(1, (Date.now() - t0) / 1200);
         bg.volume = from * (1 - q);
-        if (q &gt;= 1) { clearInterval(fade); bg.pause(); }
+        if (q &gt;= 1) { clearInterval(fade); bg.pause(); chEndCredits(); }
       }, 40);
+    } else {
+      if (bg) bg.pause();
+      chEndCredits();
     }
-  } catch (e) {}
+  } catch (e) { chEndCredits(); }
 
   // Экран зафиксирован: пролистать страницу нельзя.
   document.documentElement.classList.add(&#39;ch-end-on&#39;);
@@ -15164,11 +15199,11 @@ if (window.initClassTrialDialogue) window.initClassTrialDialogue();
     }, at);
   }
   strike(&#39;Фусту&#39;, 7000);
-  strike(&#39;Оса&#39;, 14000);
+  strike(&#39;Оса&#39;, 11000);
 
   var root = document.getElementById(&#39;ch-end&#39;);
-  setTimeout(function () { if (root) root.classList.add(&#39;is-fading&#39;); }, 22000);
-  setTimeout(function () { if (root) root.classList.add(&#39;is-final&#39;); }, 25000);
+  setTimeout(function () { if (root) root.classList.add(&#39;is-fading&#39;); }, 19000);
+  setTimeout(function () { if (root) root.classList.add(&#39;is-final&#39;); }, 22000);
 })();
 &lt;/script&gt;</tw-passagedata><tw-passagedata pid="52" name="Карнадж" tags="kv-start" position="50,50" size="100,100">&lt;div id=&quot;kv-title&quot;&gt;
   &lt;div class=&quot;kv-rays&quot;&gt;&lt;/div&gt;

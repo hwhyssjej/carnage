@@ -2859,8 +2859,8 @@ window.ctRenderLine = function (idx) {
 
   // mode: 'close' — половины съезжаются и кадр остаётся закрытым;
   //       'open'  — кадр открыт занавесом, потом половины разъезжаются.
-  // silent — занавес без удара молотка: на «ПЕРЕРЫВ» звук лишний,
-  // сцена и так уходит в затемнение.
+  // silent — занавес без удара молотка. Молчат «ПЕРЕРЫВ» и «КОНЕЦ»:
+  // обе сцены и так уходят в затемнение. Звучит только «ВОЗОБНОВЛЯЕТСЯ».
   function ctCurtain(title, sub, mode, done, silent) {
     var old = document.getElementById('trial-start-overlay');
     if (old) old.remove();
@@ -2960,7 +2960,7 @@ window.ctRenderLine = function (idx) {
           window.ctEventRunning = false;
           next();
         }, 1100);
-      }, id === 'trial-break');
+      }, id === 'trial-break' || id === 'trial-end');
       return;
     }
 
