@@ -4,3 +4,7 @@ _test_trial.html
 screenshots/
 .backup/
 node_modules/
+
+# служебные файлы редактора и локальные тесты
+.claude/
+test_game.js
