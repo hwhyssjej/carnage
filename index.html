@@ -9,6 +9,9 @@
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22g%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%23ff2bd0%22/%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%2300e5ff%22/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22%230c0716%22/%3E%3Cpath%20d%3D%22M20%2013%20L20%2051%22%20stroke%3D%22url(%23g)%22%20stroke-width%3D%227%22%20stroke-linecap%3D%22round%22/%3E%3Cpath%20d%3D%22M44%2013%20L22%2032%20L46%2051%22%20fill%3D%22none%22%20stroke%3D%22url(%23g)%22%20stroke-width%3D%227%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22/%3E%3C/svg%3E">
 <meta name="theme-color" content="#0c0716">
 <meta name="description" content="Карнадж — визуальная новелла. Глава 3: Замкнутая цепь.">
+<script>/* kvFreshStart: Harlowe запоминает сессию и при перезагрузке возвращает игрока туда же, из-за чего главное меню больше не показывалось. Стираем сессию до старта движка — вход на сайт всегда начинается с меню, а продолжить можно через сохранения. */
+try { for (var i = sessionStorage.length - 1; i >= 0; i--) { var k = sessionStorage.key(i); if (k && k.indexOf("Saved Session") !== -1) sessionStorage.removeItem(k); } } catch (e) {}
+</script>
 </head>
 <body>
 <tw-story><noscript><tw-noscript>JavaScript needs to be enabled to play Карнадж.</tw-noscript></noscript></tw-story>
@@ -7273,6 +7276,142 @@ html:has(tw-story[tags*="kv-start"]) tw-sidebar { display: none !important; }
   #kv-title .kv-ring, #kv-title .kv-rays { animation: none !important; }
   #kv-title .kv-stem, #kv-title .kv-arm { stroke-dashoffset: 0 !important; animation: none !important; }
 }
+
+/* ==========================================================================
+   ПРОВАЛ НА СУДЕ
+   Время вышло или «Состояние» опустело. Сцена перекрывает любую мини-игру,
+   поэтому z-index выше всего, что рисует суд, а клик по фону листает
+   реплики — как в обычном диалоге.
+   ========================================================================== */
+#ct-over {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 7000 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: clamp(14px, 3vh, 30px) !important;
+  padding: 16px !important;
+  opacity: 0;
+  transition: opacity 0.5s ease !important;
+  font-family: var(--game-font, sans-serif) !important;
+  cursor: pointer !important;
+}
+#ct-over.is-in { opacity: 1; }
+#ct-over .cto-dim {
+  position: absolute !important;
+  inset: 0 !important;
+  background: radial-gradient(ellipse at 50% 45%, rgba(30,4,18,0.86), rgba(3,1,8,0.96)) !important;
+}
+#ct-over .cto-box {
+  position: relative !important;
+  width: min(92vw, 760px) !important;
+  padding: clamp(16px, 3vw, 26px) clamp(18px, 3.4vw, 30px) clamp(26px, 4vw, 38px) !important;
+  background: rgba(10,5,18,0.94) !important;
+  border: 2px solid #ff2bd0 !important;
+  border-radius: 10px !important;
+  box-shadow: 0 0 26px rgba(255,43,208,0.4), inset 0 0 24px rgba(255,43,208,0.08) !important;
+  transition: opacity 0.35s ease !important;
+}
+#ct-over .cto-box.is-gone { opacity: 0 !important; pointer-events: none !important; }
+#ct-over .cto-name {
+  font-size: clamp(13px, 1.5vw, 17px) !important;
+  font-weight: 700 !important;
+  letter-spacing: 3px !important;
+  text-transform: uppercase !important;
+  color: #ff5f9e !important;
+  margin-bottom: 10px !important;
+}
+#ct-over .cto-text {
+  font-size: clamp(15px, 2.1vw, 22px) !important;
+  line-height: 1.5 !important;
+  color: #f2eaff !important;
+  min-height: 3em !important;
+}
+#ct-over .cto-text.is-thought { color: #7fd4ff !important; font-style: italic !important; }
+#ct-over .cto-next {
+  position: absolute !important;
+  right: 16px !important;
+  bottom: 10px !important;
+  color: #ff2bd0 !important;
+  font-size: 14px !important;
+  opacity: 0;
+  transition: opacity 0.2s ease !important;
+  animation: ctoNext 1s ease-in-out infinite !important;
+}
+#ct-over .cto-next.is-on { opacity: 1; }
+@keyframes ctoNext { 50% { transform: translateY(4px); } }
+
+#ct-over .cto-ask {
+  position: relative !important;
+  display: none !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: clamp(12px, 2.4vh, 22px) !important;
+  cursor: default !important;
+}
+#ct-over .cto-ask.is-on { display: flex !important; animation: ctoAsk 0.45s ease backwards !important; }
+@keyframes ctoAsk { from { opacity: 0; transform: translateY(10px); } }
+#ct-over .cto-ask-cap {
+  font-size: clamp(22px, 5vw, 44px) !important;
+  font-weight: 900 !important;
+  letter-spacing: clamp(4px, 1.2vw, 12px) !important;
+  color: #fff !important;
+  text-shadow: 0 0 12px #ff2bd0, 3px 3px 0 rgba(0,229,255,0.5) !important;
+}
+#ct-over .cto-ask-row { display: flex !important; gap: clamp(12px, 3vw, 26px) !important; }
+#ct-over .cto-btn {
+  padding: 12px clamp(28px, 7vw, 56px) !important;
+  background: rgba(12,7,22,0.92) !important;
+  border: 2px solid #ff2bd0 !important;
+  border-radius: 999px !important;
+  color: #ff5f9e !important;
+  font-family: var(--game-font, sans-serif) !important;
+  font-weight: 700 !important;
+  font-size: clamp(14px, 1.8vw, 19px) !important;
+  letter-spacing: 3px !important;
+  cursor: pointer !important;
+  transition: color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease !important;
+}
+#ct-over .cto-btn:hover { color: #fff !important; transform: translateY(-2px) !important;
+  box-shadow: 0 0 22px rgba(255,43,208,0.6) !important; }
+#ct-over .cto-no { border-color: #00e5ff !important; color: #58d8ff !important; }
+#ct-over .cto-no:hover { box-shadow: 0 0 22px rgba(0,229,255,0.6) !important; }
+
+/* Кнопка сохранений на титульном экране */
+#kv-title .kv-saves {
+  position: relative !important;
+  margin-top: clamp(10px, 1.6vh, 18px) !important;
+  padding: 10px clamp(22px, 5vw, 40px) !important;
+  background: transparent !important;
+  border: 2px solid rgba(0,229,255,0.7) !important;
+  border-radius: 999px !important;
+  color: #58d8ff !important;
+  font-family: var(--game-font, sans-serif) !important;
+  font-weight: 700 !important;
+  font-size: clamp(11px, 1.3vw, 15px) !important;
+  letter-spacing: 3px !important;
+  cursor: pointer !important;
+  animation: kvIn 0.7s ease 1.15s backwards !important;
+  transition: color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease !important;
+}
+#kv-title .kv-saves:hover { color: #fff !important; transform: translateY(-2px) !important;
+  box-shadow: 0 0 20px rgba(0,229,255,0.55) !important; }
+/* Окно сохранений должно ложиться поверх титула */
+#save-modal-overlay { z-index: 9000 !important; }
+
+/* Невысокое окно: титул с двумя кнопками должен помещаться целиком —
+   раньше «СОХРАНЕНИЯ» уходили под нижний край. */
+@media (max-height: 920px) {
+  #kv-title { gap: clamp(6px, 1.1vh, 14px) !important; }
+  #kv-title .kv-mark { width: clamp(84px, 19vh, 150px) !important; }
+  #kv-title .kv-name { font-size: clamp(28px, 8vh, 66px) !important; }
+  #kv-title .kv-sub { font-size: clamp(10px, 1.2vh, 14px) !important; }
+  #kv-title .kv-go { margin-top: clamp(6px, 1.4vh, 16px) !important; }
+  #kv-title .kv-go tw-link, #kv-title .kv-go .enchantment-link { padding: 11px clamp(24px, 5vw, 44px) !important; }
+  #kv-title .kv-saves { margin-top: clamp(5px, 1vh, 11px) !important; padding: 8px clamp(20px, 4vw, 34px) !important; }
+}
 </style><script role="script" id="twine-user-script" type="text/twine-javascript">(function () {
 
   function HS() { try { return (typeof State !== 'undefined' && State && State.variables) ? State : null; } catch (e) { return null; } }
@@ -8169,6 +8308,11 @@ window.ctRenderLine = function (idx) {
       window.clueUIState.activeClue = null;
       // «Состояние» висит и здесь: выбор улики — такая же мини-игра
       hpReset();
+      // при провале «Повторить?» возвращает игрока к этому же выбору
+      window.ctSetRetry(function () {
+        window.ctState.index = idx;
+        window.ctRenderLine(idx);
+      });
       window.clueUIState.pick = {
         clues: conf.clues,
         onChoose: function (id) {
@@ -8180,8 +8324,8 @@ window.ctRenderLine = function (idx) {
             window.ctRenderLine(window.ctState.index);
             return;
           }
-          // Неверная улика стоит половину звезды; опустело — наливаем заново
-          if (hpLose()) hpReset();
+          // Неверная улика стоит половину звезды; опустело — суд проигран
+          if (hpLose()) { window.ctGameOver(); return; }
           // подсказки, а следом снова эта же сцена выбора
           var again = (conf.wrong || []).concat([line]);
           lines.splice.apply(lines, [idx + 1, 0].concat(again));
@@ -8660,6 +8804,131 @@ window.ctRenderLine = function (idx) {
   var NSD_DARK_MS        = 260;   // пауза на чёрном перед словом ПРОРЫВ!   // сколько осыпается стекло до чёрного экрана
   var NSD_FADE_MS        = 750;   // длительность затемнения/проявления
   var NSD_FADE_HOLD_MS   = 900;   // пауза на чёрном экране  // сколько держим 'ПРОРЫВ!' перед возвратом в диалог
+
+  // ============================================================
+  // ПРОВАЛ НА СУДЕ
+  // Время вышло или «Состояние» опустело: Ксебет объявляет голосование и
+  // выносит неверный приговор. Дальше игрок решает сам — повторить
+  // мини-игру с начала или уйти в главное меню, где есть загрузка и
+  // сохранение. Сцена общая для всех мини-игр: каждая при запуске
+  // оставляет здесь свой способ начать себя заново.
+  // ============================================================
+  var CT_OVER_LINES = [
+    { name: 'Треск',  thought: true,  text: 'Нет.. я подвел всех, больше никто не верит моим словам!' },
+    { name: 'Ксебет', thought: false, text: 'Пу-пу-пу-у-у! Похоже, вы уже готовы голосовать!' },
+    { name: 'Ксебет', thought: false, text: 'Убийцей был выбран Треск! Бз-з-з! Неправильно!' }
+  ];
+  // Кнопка «СОХРАНЕНИЯ» на титульном экране открывает то же окно, что и
+  // «СОХРАНИТЬ» в игре: в нём обе вкладки — и запись, и загрузка. Само окно
+  // живёт в пассаже-шапке Sidebar, то есть доступно на любом экране.
+  document.addEventListener('click', function (e) {
+    var b = e.target && e.target.closest && e.target.closest('#kv-saves');
+    if (!b) return;
+    e.preventDefault(); e.stopPropagation();
+    var trigger = document.getElementById('save-button');
+    var link = trigger ? trigger.querySelector('tw-link, .tw-link') : null;
+    if (link) link.click();
+  }, true);
+
+  var ctOverOn = false;
+  window.ctRetry = null;
+  // Мини-игра говорит, как её поднять заново. Вызывается при её старте.
+  window.ctSetRetry = function (fn) { window.ctRetry = fn; };
+
+  // Всё, что крутится на экране, надо остановить: иначе полосы паники и
+  // раунды схватки продолжают идти под затемнением.
+  function ctOverHalt() {
+    try { nsdClearTimers(); } catch (e) {}
+    try { ctClockStop(); } catch (e) {}
+    try { hpRemove(); } catch (e) {}
+    if (window.nsdState)   window.nsdState.active = false;
+    if (window.scrumState) window.scrumState.active = false;
+    if (window.swState)    window.swState.active = false;
+    if (window.ctTypeRaf)  cancelAnimationFrame(window.ctTypeRaf);
+  }
+
+  window.ctGameOver = function () {
+    if (ctOverOn) return;
+    ctOverOn = true;
+    ctOverHalt();
+
+    var el = document.createElement('div');
+    el.id = 'ct-over';
+    el.innerHTML =
+      '<div class="cto-dim"></div>' +
+      '<div class="cto-box">' +
+        '<div class="cto-name"></div>' +
+        '<div class="cto-text"></div>' +
+        '<div class="cto-next">▼</div>' +
+      '</div>' +
+      '<div class="cto-ask">' +
+        '<div class="cto-ask-cap">ПОВТОРИТЬ?</div>' +
+        '<div class="cto-ask-row">' +
+          '<button type="button" class="cto-btn cto-yes">ДА</button>' +
+          '<button type="button" class="cto-btn cto-no">НЕТ</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(el);
+    void el.offsetWidth;
+    el.classList.add('is-in');
+
+    var nameEl = el.querySelector('.cto-name');
+    var textEl = el.querySelector('.cto-text');
+    var nextEl = el.querySelector('.cto-next');
+    var box    = el.querySelector('.cto-box');
+    var ask    = el.querySelector('.cto-ask');
+    var i = -1, typing = false, raf = 0, full = '';
+
+    function type(line) {
+      nameEl.textContent = line.name;
+      textEl.classList.toggle('is-thought', !!line.thought);
+      textEl.textContent = '';
+      nextEl.classList.remove('is-on');
+      full = line.text;
+      var node = document.createTextNode('');
+      textEl.appendChild(node);
+      var shown = 0, started = 0;
+      typing = true;
+      function frame(now) {
+        if (!started) started = now;
+        var want = Math.min(full.length, Math.floor((now - started) / 34) + 1);
+        if (want > shown) { node.data = full.slice(0, want); shown = want; }
+        if (shown < full.length) raf = requestAnimationFrame(frame);
+        else { typing = false; nextEl.classList.add('is-on'); }
+      }
+      raf = requestAnimationFrame(frame);
+    }
+
+    function step() {
+      if (typing) { cancelAnimationFrame(raf); textEl.textContent = full; typing = false; nextEl.classList.add('is-on'); return; }
+      i += 1;
+      if (i < CT_OVER_LINES.length) { type(CT_OVER_LINES[i]); return; }
+      // реплики кончились — спрашиваем про повтор
+      box.classList.add('is-gone');
+      ask.classList.add('is-on');
+    }
+
+    el.addEventListener('click', function (e) {
+      if (e.target.closest('.cto-ask')) return;
+      step();
+    });
+    el.querySelector('.cto-yes').addEventListener('click', function (e) {
+      e.stopPropagation();
+      var again = window.ctRetry;
+      ctOverOn = false;
+      if (el.parentNode) el.remove();
+      try { hpReset(); } catch (err) {}
+      if (typeof again === 'function') again();
+    });
+    el.querySelector('.cto-no').addEventListener('click', function (e) {
+      e.stopPropagation();
+      // Главное меню — стартовый пассаж, и перезагрузка возвращает игру
+      // в него целиком: ни один таймер мини-игры не переживёт этого.
+      window.location.reload();
+    });
+
+    step();
+  };
 
   window.nsdState = { active: false, finishing: false, debateId: null, i: 0, onComplete: null, prevTrack: null };
   window.nsdTimers = [];
@@ -9607,10 +9876,7 @@ window.ctRenderLine = function (idx) {
   // когда опустело.
   function nsdOutOfTime() {
     if (!window.nsdState.active || nsdMissLock) return;
-    if (hpLose()) hpReset();
-    ctClockStart(nsdSceneTime(), nsdOutOfTime);
-    nsdTimeOut = true;
-    nsdMiss(null, null);
+    window.ctGameOver();
   }
 
   var nsdTimeOut = false;
@@ -9624,10 +9890,7 @@ window.ctRenderLine = function (idx) {
     // с полным состоянием и часами.
     // здоровье за истёкшее время уже снято в nsdOutOfTime — дважды не берём
     if (nsdTimeOut) nsdTimeOut = false;
-    else if (hpLose()) {
-      hpReset();
-      ctClockStart(nsdSceneTime(), nsdOutOfTime);
-    }
+    else if (hpLose()) { nsdMissLock = false; window.ctGameOver(); return; }
 
     var aim = nsdAimEl();
     if (aim) { aim.classList.add('is-miss'); setTimeout(function () { aim.classList.remove('is-miss'); }, 460); }
@@ -9639,6 +9902,20 @@ window.ctRenderLine = function (idx) {
       lineEl.classList.add('is-wrong');
     }
 
+    // В массовой панике полосы идут каждая сама по себе. Промах помечал
+    // реплику решённой — и её полоса на этом замирала навсегда, а поверх
+    // паники начинал крутиться обычный круг дебатов. Поэтому здесь: гасим
+    // все полосы разом, а после подсказки поднимаем панику заново.
+    var pd = NSD_DEBATES[window.nsdState.debateId];
+    var isPanic = !!(pd && pd.panic);
+    if (isPanic) {
+      nsdClearTimers();
+      var pw = document.getElementById('nsd-panic');
+      if (pw) Array.prototype.forEach.call(pw.querySelectorAll('.nsdp-line'), function (n) {
+        if (n !== lineEl) { n.classList.add('is-out'); n.classList.add('resolved'); }
+      });
+    }
+
     nsdWait(function () {
       nsdAimOff();
       if (lineEl && lineEl.parentNode) {
@@ -9647,8 +9924,12 @@ window.ctRenderLine = function (idx) {
       }
       nsdWait(function () {
         nsdMissLock = false;
-        // круг закончился впустую: реплики Треска, потом дебаты с начала
-        nsdShowHint(function () { nsdAimOn(); nsdShowLine(0); });
+        // круг закончился впустую: реплики Треска, потом сцена с начала
+        nsdShowHint(function () {
+          nsdAimOn();
+          if (isPanic) nsdStartPanic(pd);
+          else nsdShowLine(0);
+        });
       }, NSD_LINE_OUT_MS + 260);
     }, NSD_MISS_HOLD_MS);
   }
@@ -10276,6 +10557,7 @@ window.ctRenderLine = function (idx) {
   }
 
   window.startNonStopDebate = function (debateId, onComplete) {
+    window.ctSetRetry(function () { window.startNonStopDebate(debateId, onComplete); });
     var debate = NSD_DEBATES[debateId];
     if (!debate) { if (onComplete) onComplete(); return; }
     // В панике реплики разложены по полосам, поэтому нужную пулю ищем
@@ -11222,9 +11504,8 @@ window.ctRenderLine = function (idx) {
     st.phase = 'between';
     if (el) { el.dataset.busy = '1'; el.classList.add('is-blocked'); }
     sfxShoot.play();
-    // Ошибка стоит половину звезды; опустело — состояние наливается заново
-    // вместе с самой схваткой.
-    if (hpLose()) hpReset();
+    // Ошибка стоит половину звезды; опустело — суд проигран.
+    if (hpLose()) { st.restarting = false; window.ctGameOver(); return; }
     swFlashMiss();
     nsdClearTimers();
     swBindInput(false);
@@ -11350,6 +11631,7 @@ window.ctRenderLine = function (idx) {
   }
 
   window.startSwordBattle = function (battleId, onComplete) {
+    window.ctSetRetry(function () { window.startSwordBattle(battleId, onComplete); });
     var battle = SWORD_BATTLES[battleId];
     if (!battle) { if (onComplete) onComplete(); return; }
     nsdClearTimers();
@@ -11421,6 +11703,7 @@ window.ctRenderLine = function (idx) {
 
   // conf: { options: [строки], correct: индекс, timeMs, wrong: [реплики] }
   function ctRunGuess(conf, onDone) {
+    window.ctSetRetry(function () { ctRunGuess(conf, onDone); });
     var host = document.getElementById('ct-root') || document.body;
     ctGuessClose();
     ctCancelAuto();
@@ -11469,8 +11752,9 @@ window.ctRenderLine = function (idx) {
       if (chosen) chosen.classList.add(ok ? 'is-right' : 'is-wrong');
       nsdPlaySfx(ok ? NSD_SFX_BULLET_HIT : SFX_LOUD_TEXT2, 0.85);
       if (!ok) {
-        // Промах и утекшее время стоят одинаково — половины звезды
-        if (hpLose()) hpReset();
+        // Утекшее время — сразу провал; промах стоит половину звезды
+        if (picked < 0) { ctClockStop(); window.ctGameOver(); return; }
+        if (hpLose()) { ctClockStop(); window.ctGameOver(); return; }
         var root = document.getElementById('ct-root');
         if (root) { root.classList.remove('ct-quake'); void root.offsetWidth; root.classList.add('ct-quake'); }
       }
@@ -12117,9 +12401,7 @@ window.ctRenderLine = function (idx) {
   function scrOutOfTime() {
     var st = window.scrumState;
     if (!st || !st.active || st.failing || st.winning) return;
-    if (hpLose()) { scrFail('СОСТОЯНИЕ НА НУЛЕ!'); return; }
-    ctClockStart(st.scene.timeMs, scrOutOfTime);
-    ctClockPause(st.locked);
+    window.ctGameOver();
   }
 
   // ---------- раунд ----------
@@ -12364,7 +12646,7 @@ window.ctRenderLine = function (idx) {
     nsdWait(function () {
       if (!st.active) return;
       if (root) root.classList.remove('is-hurt');
-      if (drained) { scrFail('СОСТОЯНИЕ НА НУЛЕ!'); return; }
+      if (drained) { window.ctGameOver(); return; }
       if (!st.resolved) { st.locked = false; scrPause(false); scrArmHold(); }
     }, SCR_MISS_MS);
   }
@@ -12544,6 +12826,7 @@ window.ctRenderLine = function (idx) {
   }
 
   window.startDebateScrum = function (sceneId, onComplete) {
+    window.ctSetRetry(function () { window.startDebateScrum(sceneId, onComplete); });
     var scene = SCRUM_SCENES[sceneId];
     if (!scene) { if (onComplete) onComplete(); return; }
     nsdClearTimers();
@@ -15223,6 +15506,7 @@ if (window.initClassTrialDialogue) window.initClassTrialDialogue();
   &lt;h1 class=&quot;kv-name&quot;&gt;КАРНАДЖ&lt;/h1&gt;
   &lt;div class=&quot;kv-sub&quot;&gt;Глава 3 &amp;middot; Замкнутая цепь&lt;/div&gt;
   &lt;div class=&quot;kv-go&quot;&gt;[[НАЧАТЬ ИГРУ-&gt;3 глава]]&lt;/div&gt;
+  &lt;button type=&quot;button&quot; id=&quot;kv-saves&quot; class=&quot;kv-saves&quot;&gt;СОХРАНЕНИЯ&lt;/button&gt;
 &lt;/div&gt;</tw-passagedata><tw-passagedata pid="53" name="Треск спать" tags="peace darkness-time" position="700,760" size="100,100">Я пошел обратно на склад. Местом для ночлега я выбрал одинокую комнату внизу подвала. Я скрутился на полу и подпер щеку рукой. В комнате было темно и тихо, но спать на холодном полу было почти невозможно.
 
 Тревожные мысли не покидали меня, снова и снова возвращаясь в голову.

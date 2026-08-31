@@ -7259,3 +7259,139 @@ html:has(tw-story[tags*="kv-start"]) tw-sidebar { display: none !important; }
   #kv-title .kv-ring, #kv-title .kv-rays { animation: none !important; }
   #kv-title .kv-stem, #kv-title .kv-arm { stroke-dashoffset: 0 !important; animation: none !important; }
 }
+
+/* ==========================================================================
+   ПРОВАЛ НА СУДЕ
+   Время вышло или «Состояние» опустело. Сцена перекрывает любую мини-игру,
+   поэтому z-index выше всего, что рисует суд, а клик по фону листает
+   реплики — как в обычном диалоге.
+   ========================================================================== */
+#ct-over {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 7000 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: clamp(14px, 3vh, 30px) !important;
+  padding: 16px !important;
+  opacity: 0;
+  transition: opacity 0.5s ease !important;
+  font-family: var(--game-font, sans-serif) !important;
+  cursor: pointer !important;
+}
+#ct-over.is-in { opacity: 1; }
+#ct-over .cto-dim {
+  position: absolute !important;
+  inset: 0 !important;
+  background: radial-gradient(ellipse at 50% 45%, rgba(30,4,18,0.86), rgba(3,1,8,0.96)) !important;
+}
+#ct-over .cto-box {
+  position: relative !important;
+  width: min(92vw, 760px) !important;
+  padding: clamp(16px, 3vw, 26px) clamp(18px, 3.4vw, 30px) clamp(26px, 4vw, 38px) !important;
+  background: rgba(10,5,18,0.94) !important;
+  border: 2px solid #ff2bd0 !important;
+  border-radius: 10px !important;
+  box-shadow: 0 0 26px rgba(255,43,208,0.4), inset 0 0 24px rgba(255,43,208,0.08) !important;
+  transition: opacity 0.35s ease !important;
+}
+#ct-over .cto-box.is-gone { opacity: 0 !important; pointer-events: none !important; }
+#ct-over .cto-name {
+  font-size: clamp(13px, 1.5vw, 17px) !important;
+  font-weight: 700 !important;
+  letter-spacing: 3px !important;
+  text-transform: uppercase !important;
+  color: #ff5f9e !important;
+  margin-bottom: 10px !important;
+}
+#ct-over .cto-text {
+  font-size: clamp(15px, 2.1vw, 22px) !important;
+  line-height: 1.5 !important;
+  color: #f2eaff !important;
+  min-height: 3em !important;
+}
+#ct-over .cto-text.is-thought { color: #7fd4ff !important; font-style: italic !important; }
+#ct-over .cto-next {
+  position: absolute !important;
+  right: 16px !important;
+  bottom: 10px !important;
+  color: #ff2bd0 !important;
+  font-size: 14px !important;
+  opacity: 0;
+  transition: opacity 0.2s ease !important;
+  animation: ctoNext 1s ease-in-out infinite !important;
+}
+#ct-over .cto-next.is-on { opacity: 1; }
+@keyframes ctoNext { 50% { transform: translateY(4px); } }
+
+#ct-over .cto-ask {
+  position: relative !important;
+  display: none !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: clamp(12px, 2.4vh, 22px) !important;
+  cursor: default !important;
+}
+#ct-over .cto-ask.is-on { display: flex !important; animation: ctoAsk 0.45s ease backwards !important; }
+@keyframes ctoAsk { from { opacity: 0; transform: translateY(10px); } }
+#ct-over .cto-ask-cap {
+  font-size: clamp(22px, 5vw, 44px) !important;
+  font-weight: 900 !important;
+  letter-spacing: clamp(4px, 1.2vw, 12px) !important;
+  color: #fff !important;
+  text-shadow: 0 0 12px #ff2bd0, 3px 3px 0 rgba(0,229,255,0.5) !important;
+}
+#ct-over .cto-ask-row { display: flex !important; gap: clamp(12px, 3vw, 26px) !important; }
+#ct-over .cto-btn {
+  padding: 12px clamp(28px, 7vw, 56px) !important;
+  background: rgba(12,7,22,0.92) !important;
+  border: 2px solid #ff2bd0 !important;
+  border-radius: 999px !important;
+  color: #ff5f9e !important;
+  font-family: var(--game-font, sans-serif) !important;
+  font-weight: 700 !important;
+  font-size: clamp(14px, 1.8vw, 19px) !important;
+  letter-spacing: 3px !important;
+  cursor: pointer !important;
+  transition: color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease !important;
+}
+#ct-over .cto-btn:hover { color: #fff !important; transform: translateY(-2px) !important;
+  box-shadow: 0 0 22px rgba(255,43,208,0.6) !important; }
+#ct-over .cto-no { border-color: #00e5ff !important; color: #58d8ff !important; }
+#ct-over .cto-no:hover { box-shadow: 0 0 22px rgba(0,229,255,0.6) !important; }
+
+/* Кнопка сохранений на титульном экране */
+#kv-title .kv-saves {
+  position: relative !important;
+  margin-top: clamp(10px, 1.6vh, 18px) !important;
+  padding: 10px clamp(22px, 5vw, 40px) !important;
+  background: transparent !important;
+  border: 2px solid rgba(0,229,255,0.7) !important;
+  border-radius: 999px !important;
+  color: #58d8ff !important;
+  font-family: var(--game-font, sans-serif) !important;
+  font-weight: 700 !important;
+  font-size: clamp(11px, 1.3vw, 15px) !important;
+  letter-spacing: 3px !important;
+  cursor: pointer !important;
+  animation: kvIn 0.7s ease 1.15s backwards !important;
+  transition: color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease !important;
+}
+#kv-title .kv-saves:hover { color: #fff !important; transform: translateY(-2px) !important;
+  box-shadow: 0 0 20px rgba(0,229,255,0.55) !important; }
+/* Окно сохранений должно ложиться поверх титула */
+#save-modal-overlay { z-index: 9000 !important; }
+
+/* Невысокое окно: титул с двумя кнопками должен помещаться целиком —
+   раньше «СОХРАНЕНИЯ» уходили под нижний край. */
+@media (max-height: 920px) {
+  #kv-title { gap: clamp(6px, 1.1vh, 14px) !important; }
+  #kv-title .kv-mark { width: clamp(84px, 19vh, 150px) !important; }
+  #kv-title .kv-name { font-size: clamp(28px, 8vh, 66px) !important; }
+  #kv-title .kv-sub { font-size: clamp(10px, 1.2vh, 14px) !important; }
+  #kv-title .kv-go { margin-top: clamp(6px, 1.4vh, 16px) !important; }
+  #kv-title .kv-go tw-link, #kv-title .kv-go .enchantment-link { padding: 11px clamp(24px, 5vw, 44px) !important; }
+  #kv-title .kv-saves { margin-top: clamp(5px, 1vh, 11px) !important; padding: 8px clamp(20px, 4vw, 34px) !important; }
+}

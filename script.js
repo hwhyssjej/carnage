@@ -894,6 +894,11 @@ window.ctRenderLine = function (idx) {
       window.clueUIState.activeClue = null;
       // «Состояние» висит и здесь: выбор улики — такая же мини-игра
       hpReset();
+      // при провале «Повторить?» возвращает игрока к этому же выбору
+      window.ctSetRetry(function () {
+        window.ctState.index = idx;
+        window.ctRenderLine(idx);
+      });
       window.clueUIState.pick = {
         clues: conf.clues,
         onChoose: function (id) {
@@ -905,8 +910,8 @@ window.ctRenderLine = function (idx) {
             window.ctRenderLine(window.ctState.index);
             return;
           }
-          // Неверная улика стоит половину звезды; опустело — наливаем заново
-          if (hpLose()) hpReset();
+          // Неверная улика стоит половину звезды; опустело — суд проигран
+          if (hpLose()) { window.ctGameOver(); return; }
           // подсказки, а следом снова эта же сцена выбора
           var again = (conf.wrong || []).concat([line]);
           lines.splice.apply(lines, [idx + 1, 0].concat(again));
@@ -1385,6 +1390,131 @@ window.ctRenderLine = function (idx) {
   var NSD_DARK_MS        = 260;   // пауза на чёрном перед словом ПРОРЫВ!   // сколько осыпается стекло до чёрного экрана
   var NSD_FADE_MS        = 750;   // длительность затемнения/проявления
   var NSD_FADE_HOLD_MS   = 900;   // пауза на чёрном экране  // сколько держим 'ПРОРЫВ!' перед возвратом в диалог
+
+  // ============================================================
+  // ПРОВАЛ НА СУДЕ
+  // Время вышло или «Состояние» опустело: Ксебет объявляет голосование и
+  // выносит неверный приговор. Дальше игрок решает сам — повторить
+  // мини-игру с начала или уйти в главное меню, где есть загрузка и
+  // сохранение. Сцена общая для всех мини-игр: каждая при запуске
+  // оставляет здесь свой способ начать себя заново.
+  // ============================================================
+  var CT_OVER_LINES = [
+    { name: 'Треск',  thought: true,  text: 'Нет.. я подвел всех, больше никто не верит моим словам!' },
+    { name: 'Ксебет', thought: false, text: 'Пу-пу-пу-у-у! Похоже, вы уже готовы голосовать!' },
+    { name: 'Ксебет', thought: false, text: 'Убийцей был выбран Треск! Бз-з-з! Неправильно!' }
+  ];
+  // Кнопка «СОХРАНЕНИЯ» на титульном экране открывает то же окно, что и
+  // «СОХРАНИТЬ» в игре: в нём обе вкладки — и запись, и загрузка. Само окно
+  // живёт в пассаже-шапке Sidebar, то есть доступно на любом экране.
+  document.addEventListener('click', function (e) {
+    var b = e.target && e.target.closest && e.target.closest('#kv-saves');
+    if (!b) return;
+    e.preventDefault(); e.stopPropagation();
+    var trigger = document.getElementById('save-button');
+    var link = trigger ? trigger.querySelector('tw-link, .tw-link') : null;
+    if (link) link.click();
+  }, true);
+
+  var ctOverOn = false;
+  window.ctRetry = null;
+  // Мини-игра говорит, как её поднять заново. Вызывается при её старте.
+  window.ctSetRetry = function (fn) { window.ctRetry = fn; };
+
+  // Всё, что крутится на экране, надо остановить: иначе полосы паники и
+  // раунды схватки продолжают идти под затемнением.
+  function ctOverHalt() {
+    try { nsdClearTimers(); } catch (e) {}
+    try { ctClockStop(); } catch (e) {}
+    try { hpRemove(); } catch (e) {}
+    if (window.nsdState)   window.nsdState.active = false;
+    if (window.scrumState) window.scrumState.active = false;
+    if (window.swState)    window.swState.active = false;
+    if (window.ctTypeRaf)  cancelAnimationFrame(window.ctTypeRaf);
+  }
+
+  window.ctGameOver = function () {
+    if (ctOverOn) return;
+    ctOverOn = true;
+    ctOverHalt();
+
+    var el = document.createElement('div');
+    el.id = 'ct-over';
+    el.innerHTML =
+      '<div class="cto-dim"></div>' +
+      '<div class="cto-box">' +
+        '<div class="cto-name"></div>' +
+        '<div class="cto-text"></div>' +
+        '<div class="cto-next">▼</div>' +
+      '</div>' +
+      '<div class="cto-ask">' +
+        '<div class="cto-ask-cap">ПОВТОРИТЬ?</div>' +
+        '<div class="cto-ask-row">' +
+          '<button type="button" class="cto-btn cto-yes">ДА</button>' +
+          '<button type="button" class="cto-btn cto-no">НЕТ</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(el);
+    void el.offsetWidth;
+    el.classList.add('is-in');
+
+    var nameEl = el.querySelector('.cto-name');
+    var textEl = el.querySelector('.cto-text');
+    var nextEl = el.querySelector('.cto-next');
+    var box    = el.querySelector('.cto-box');
+    var ask    = el.querySelector('.cto-ask');
+    var i = -1, typing = false, raf = 0, full = '';
+
+    function type(line) {
+      nameEl.textContent = line.name;
+      textEl.classList.toggle('is-thought', !!line.thought);
+      textEl.textContent = '';
+      nextEl.classList.remove('is-on');
+      full = line.text;
+      var node = document.createTextNode('');
+      textEl.appendChild(node);
+      var shown = 0, started = 0;
+      typing = true;
+      function frame(now) {
+        if (!started) started = now;
+        var want = Math.min(full.length, Math.floor((now - started) / 34) + 1);
+        if (want > shown) { node.data = full.slice(0, want); shown = want; }
+        if (shown < full.length) raf = requestAnimationFrame(frame);
+        else { typing = false; nextEl.classList.add('is-on'); }
+      }
+      raf = requestAnimationFrame(frame);
+    }
+
+    function step() {
+      if (typing) { cancelAnimationFrame(raf); textEl.textContent = full; typing = false; nextEl.classList.add('is-on'); return; }
+      i += 1;
+      if (i < CT_OVER_LINES.length) { type(CT_OVER_LINES[i]); return; }
+      // реплики кончились — спрашиваем про повтор
+      box.classList.add('is-gone');
+      ask.classList.add('is-on');
+    }
+
+    el.addEventListener('click', function (e) {
+      if (e.target.closest('.cto-ask')) return;
+      step();
+    });
+    el.querySelector('.cto-yes').addEventListener('click', function (e) {
+      e.stopPropagation();
+      var again = window.ctRetry;
+      ctOverOn = false;
+      if (el.parentNode) el.remove();
+      try { hpReset(); } catch (err) {}
+      if (typeof again === 'function') again();
+    });
+    el.querySelector('.cto-no').addEventListener('click', function (e) {
+      e.stopPropagation();
+      // Главное меню — стартовый пассаж, и перезагрузка возвращает игру
+      // в него целиком: ни один таймер мини-игры не переживёт этого.
+      window.location.reload();
+    });
+
+    step();
+  };
 
   window.nsdState = { active: false, finishing: false, debateId: null, i: 0, onComplete: null, prevTrack: null };
   window.nsdTimers = [];
@@ -2332,10 +2462,7 @@ window.ctRenderLine = function (idx) {
   // когда опустело.
   function nsdOutOfTime() {
     if (!window.nsdState.active || nsdMissLock) return;
-    if (hpLose()) hpReset();
-    ctClockStart(nsdSceneTime(), nsdOutOfTime);
-    nsdTimeOut = true;
-    nsdMiss(null, null);
+    window.ctGameOver();
   }
 
   var nsdTimeOut = false;
@@ -2349,10 +2476,7 @@ window.ctRenderLine = function (idx) {
     // с полным состоянием и часами.
     // здоровье за истёкшее время уже снято в nsdOutOfTime — дважды не берём
     if (nsdTimeOut) nsdTimeOut = false;
-    else if (hpLose()) {
-      hpReset();
-      ctClockStart(nsdSceneTime(), nsdOutOfTime);
-    }
+    else if (hpLose()) { nsdMissLock = false; window.ctGameOver(); return; }
 
     var aim = nsdAimEl();
     if (aim) { aim.classList.add('is-miss'); setTimeout(function () { aim.classList.remove('is-miss'); }, 460); }
@@ -2364,6 +2488,20 @@ window.ctRenderLine = function (idx) {
       lineEl.classList.add('is-wrong');
     }
 
+    // В массовой панике полосы идут каждая сама по себе. Промах помечал
+    // реплику решённой — и её полоса на этом замирала навсегда, а поверх
+    // паники начинал крутиться обычный круг дебатов. Поэтому здесь: гасим
+    // все полосы разом, а после подсказки поднимаем панику заново.
+    var pd = NSD_DEBATES[window.nsdState.debateId];
+    var isPanic = !!(pd && pd.panic);
+    if (isPanic) {
+      nsdClearTimers();
+      var pw = document.getElementById('nsd-panic');
+      if (pw) Array.prototype.forEach.call(pw.querySelectorAll('.nsdp-line'), function (n) {
+        if (n !== lineEl) { n.classList.add('is-out'); n.classList.add('resolved'); }
+      });
+    }
+
     nsdWait(function () {
       nsdAimOff();
       if (lineEl && lineEl.parentNode) {
@@ -2372,8 +2510,12 @@ window.ctRenderLine = function (idx) {
       }
       nsdWait(function () {
         nsdMissLock = false;
-        // круг закончился впустую: реплики Треска, потом дебаты с начала
-        nsdShowHint(function () { nsdAimOn(); nsdShowLine(0); });
+        // круг закончился впустую: реплики Треска, потом сцена с начала
+        nsdShowHint(function () {
+          nsdAimOn();
+          if (isPanic) nsdStartPanic(pd);
+          else nsdShowLine(0);
+        });
       }, NSD_LINE_OUT_MS + 260);
     }, NSD_MISS_HOLD_MS);
   }
@@ -3001,6 +3143,7 @@ window.ctRenderLine = function (idx) {
   }
 
   window.startNonStopDebate = function (debateId, onComplete) {
+    window.ctSetRetry(function () { window.startNonStopDebate(debateId, onComplete); });
     var debate = NSD_DEBATES[debateId];
     if (!debate) { if (onComplete) onComplete(); return; }
     // В панике реплики разложены по полосам, поэтому нужную пулю ищем
@@ -3947,9 +4090,8 @@ window.ctRenderLine = function (idx) {
     st.phase = 'between';
     if (el) { el.dataset.busy = '1'; el.classList.add('is-blocked'); }
     sfxShoot.play();
-    // Ошибка стоит половину звезды; опустело — состояние наливается заново
-    // вместе с самой схваткой.
-    if (hpLose()) hpReset();
+    // Ошибка стоит половину звезды; опустело — суд проигран.
+    if (hpLose()) { st.restarting = false; window.ctGameOver(); return; }
     swFlashMiss();
     nsdClearTimers();
     swBindInput(false);
@@ -4075,6 +4217,7 @@ window.ctRenderLine = function (idx) {
   }
 
   window.startSwordBattle = function (battleId, onComplete) {
+    window.ctSetRetry(function () { window.startSwordBattle(battleId, onComplete); });
     var battle = SWORD_BATTLES[battleId];
     if (!battle) { if (onComplete) onComplete(); return; }
     nsdClearTimers();
@@ -4146,6 +4289,7 @@ window.ctRenderLine = function (idx) {
 
   // conf: { options: [строки], correct: индекс, timeMs, wrong: [реплики] }
   function ctRunGuess(conf, onDone) {
+    window.ctSetRetry(function () { ctRunGuess(conf, onDone); });
     var host = document.getElementById('ct-root') || document.body;
     ctGuessClose();
     ctCancelAuto();
@@ -4194,8 +4338,9 @@ window.ctRenderLine = function (idx) {
       if (chosen) chosen.classList.add(ok ? 'is-right' : 'is-wrong');
       nsdPlaySfx(ok ? NSD_SFX_BULLET_HIT : SFX_LOUD_TEXT2, 0.85);
       if (!ok) {
-        // Промах и утекшее время стоят одинаково — половины звезды
-        if (hpLose()) hpReset();
+        // Утекшее время — сразу провал; промах стоит половину звезды
+        if (picked < 0) { ctClockStop(); window.ctGameOver(); return; }
+        if (hpLose()) { ctClockStop(); window.ctGameOver(); return; }
         var root = document.getElementById('ct-root');
         if (root) { root.classList.remove('ct-quake'); void root.offsetWidth; root.classList.add('ct-quake'); }
       }
@@ -4842,9 +4987,7 @@ window.ctRenderLine = function (idx) {
   function scrOutOfTime() {
     var st = window.scrumState;
     if (!st || !st.active || st.failing || st.winning) return;
-    if (hpLose()) { scrFail('СОСТОЯНИЕ НА НУЛЕ!'); return; }
-    ctClockStart(st.scene.timeMs, scrOutOfTime);
-    ctClockPause(st.locked);
+    window.ctGameOver();
   }
 
   // ---------- раунд ----------
@@ -5089,7 +5232,7 @@ window.ctRenderLine = function (idx) {
     nsdWait(function () {
       if (!st.active) return;
       if (root) root.classList.remove('is-hurt');
-      if (drained) { scrFail('СОСТОЯНИЕ НА НУЛЕ!'); return; }
+      if (drained) { window.ctGameOver(); return; }
       if (!st.resolved) { st.locked = false; scrPause(false); scrArmHold(); }
     }, SCR_MISS_MS);
   }
@@ -5269,6 +5412,7 @@ window.ctRenderLine = function (idx) {
   }
 
   window.startDebateScrum = function (sceneId, onComplete) {
+    window.ctSetRetry(function () { window.startDebateScrum(sceneId, onComplete); });
     var scene = SCRUM_SCENES[sceneId];
     if (!scene) { if (onComplete) onComplete(); return; }
     nsdClearTimers();
