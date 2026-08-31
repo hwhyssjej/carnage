@@ -7395,3 +7395,10 @@ html:has(tw-story[tags*="kv-start"]) tw-sidebar { display: none !important; }
   #kv-title .kv-go tw-link, #kv-title .kv-go .enchantment-link { padding: 11px clamp(24px, 5vw, 44px) !important; }
   #kv-title .kv-saves { margin-top: clamp(5px, 1vh, 11px) !important; padding: 8px clamp(20px, 4vw, 34px) !important; }
 }
+
+/* Во время нон-стоп дебатов окно диалога суда должно быть скрыто: раньше
+   его прятал только код запуска, и любой другой вход в сцену (повтор после
+   провала, отладка) оставлял реплику суда лежать поверх полос паники.
+   Исключение — подсказка Треска между кругами: она рисуется этим же окном. */
+html.nsd-active #ct-root:not(.nsd-hint-on) .ct-dialogue-box,
+html.nsd-active #ct-root:not(.nsd-hint-on) #ct-namecard { display: none !important; }

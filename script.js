@@ -2220,6 +2220,11 @@ window.ctRenderLine = function (idx) {
     if (!window.nsdState.active) return;
     var debate = NSD_DEBATES[window.nsdState.debateId];
     if (!debate) { nsdFinish(); return; }
+    // У паники своих lines нет — там полосы. Сюда можно было провалиться
+    // после промаха, и тогда круг обычных дебатов рисовался поверх паники,
+    // а сам обход падал на debate.lines. Заглушка на всякий случай: любой
+    // такой заход поднимает панику, а не ломает сцену.
+    if (debate.panic) { nsdStartPanic(debate); return; }
     var total = debate.lines.length;
     // дебаты идут по кругу, пока игрок не выстрелит по слабому месту
     var idx = ((i % total) + total) % total;
