@@ -5529,8 +5529,45 @@ window.ctRenderLine = function (idx) {
   // НАБЛЮДАТЕЛЬ
   // ============================================================
   var updateScheduled = false;
+  // ============================================================
+  // ТЕМА ТИТУЛЬНОГО ЭКРАНА
+  // Браузер не даёт звук до первого действия игрока, поэтому пробуем
+  // завести сразу, а если не пустили — заводим на первом же касании или
+  // нажатии клавиши. Уходя с титула, тему гасим коротким затуханием:
+  // дальше у главы своя музыка, и накладываться они не должны.
+  // ============================================================
+  var KV_MUSIC = 'https://jetta.vgmtreasurechest.com/soundtracks/new-danganronpa-v3-o.s.t.-black/vcxefofh/3-12.%20Monokuma%27s%20Trial.mp3';
+  var kvAudio = null;
+  function kvMusicKick() { if (kvAudio) kvAudio.play().catch(function () {}); }
+  function kvMusicStop() {
+    if (!kvAudio) return;
+    var a = kvAudio;
+    kvAudio = null;
+    document.removeEventListener('pointerdown', kvMusicKick, true);
+    document.removeEventListener('keydown', kvMusicKick, true);
+    var from = a.volume, t0 = Date.now();
+    var fade = setInterval(function () {
+      var q = Math.min(1, (Date.now() - t0) / 400);
+      try { a.volume = from * (1 - q); } catch (e) {}
+      if (q >= 1) { clearInterval(fade); try { a.pause(); a.src = ''; } catch (e) {} }
+    }, 40);
+  }
+  function kvMusicEnsure() {
+    if (!document.getElementById('kv-title')) { kvMusicStop(); return; }
+    if (kvAudio) return;
+    try {
+      kvAudio = new Audio(KV_MUSIC);
+      kvAudio.loop = true;
+      kvAudio.volume = 0.55;
+      kvAudio.play().catch(function () {});
+      document.addEventListener('pointerdown', kvMusicKick, true);
+      document.addEventListener('keydown', kvMusicKick, true);
+    } catch (e) { kvAudio = null; }
+  }
+
   function runUpdates() {
     checkAndPlay();
+    kvMusicEnsure();
     ensureMuteButton();
     ensureGameMenu();
     ensureCtAutoButton();
