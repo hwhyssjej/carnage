@@ -5599,24 +5599,41 @@ window.ctRenderLine = function (idx) {
   // нажатии клавиши. Уходя с титула, тему гасим коротким затуханием:
   // дальше у главы своя музыка, и накладываться они не должны.
   // ============================================================
+  // Harlowe держит содержимое нового пассажа в обёртке перехода и
+  // разворачивает её только через 0.8 с. Смена родителя перезапускает
+  // анимации, и экраны меню проигрывались дважды — вынимаем их сами.
+  function kvUnwrapScreen() {
+    var el = document.querySelector('.kv-screen');
+    if (!el) return;
+    var box = el.parentNode;
+    if (box && box.tagName === 'TW-TRANSITION-CONTAINER' && box.parentNode) {
+      box.parentNode.appendChild(el);
+    }
+  }
+
   var KV_MUSIC = 'https://lambda.vgmtreasurechest.com/soundtracks/new-danganronpa-v3-o.s.t.-white/pmqtvwxw/1-02.%20Danganronpa%21%20V3%21.mp3';
   var kvAudio = null;
   function kvMusicKick() { if (kvAudio) kvAudio.play().catch(function () {}); }
+  var KV_FADE_MS = 1300;
   function kvMusicStop() {
     if (!kvAudio) return;
     var a = kvAudio;
     kvAudio = null;
     document.removeEventListener('pointerdown', kvMusicKick, true);
     document.removeEventListener('keydown', kvMusicKick, true);
-    var from = a.volume, t0 = Date.now();
-    var fade = setInterval(function () {
-      var q = Math.min(1, (Date.now() - t0) / 400);
-      try { a.volume = from * (1 - q); } catch (e) {}
-      if (q >= 1) { clearInterval(fade); try { a.pause(); a.src = ''; } catch (e) {} }
-    }, 40);
+    // Уход по кривой, а не линейкой: линейное затухание на слух обрывается
+    // у самого конца, и переход в тему главы получался резким.
+    var from = a.volume, t0 = performance.now();
+    (function step(now) {
+      var q = Math.min(1, ((now || performance.now()) - t0) / KV_FADE_MS);
+      var e = 1 - Math.pow(1 - q, 2);
+      try { a.volume = Math.max(0, from * (1 - e)); } catch (err) {}
+      if (q < 1) requestAnimationFrame(step);
+      else { try { a.pause(); a.src = ''; } catch (err) {} }
+    })();
   }
   function kvMusicEnsure() {
-    if (!document.getElementById('kv-title')) { kvMusicStop(); return; }
+    if (!document.querySelector('.kv-screen')) { kvMusicStop(); return; }
     if (kvAudio) return;
     try {
       kvAudio = new Audio(KV_MUSIC);
@@ -5629,6 +5646,7 @@ window.ctRenderLine = function (idx) {
   }
 
   function runUpdates() {
+    kvUnwrapScreen();
     checkAndPlay();
     kvMusicEnsure();
     smEnsure();
