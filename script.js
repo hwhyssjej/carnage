@@ -1185,6 +1185,19 @@ window.ctRenderLine = function (idx) {
     }
   };
 
+  // Сцены суда — подсказка между кругами, реплики битвы на мечах и окна
+  // последнего аргумента — вешают перехват кликов на весь документ и гасят
+  // всплытие. Из-за этого они глотали нажатия и на служебные кнопки: на
+  // последнем аргументе меню с сохранением просто не открывалось. Клики по
+  // этой обвязке сцены пропускают мимо себя.
+  var CT_CHROME_SEL = '#game-menu-wrap, #save-button, #save-modal-overlay,' +
+                      ' #clue-modal-overlay, #clue-button, #mute-toggle-btn,' +
+                      ' #ct-auto-btn, tw-sidebar';
+  function ctIsChromeClick(e) {
+    var t = e && e.target;
+    return !!(t && t.closest && t.closest(CT_CHROME_SEL));
+  }
+
   window.initClassTrialDialogue = function () {
     // прогреваем темы, которые понадобятся по ходу суда
     ['nsd-argument', 'nsd-perjury', 'nsd-space', 'nsd-bladelock', 'nsd-panic', 'nsd-heat',
@@ -1197,15 +1210,77 @@ window.ctRenderLine = function (idx) {
     ctClockStop();
     hpRemove();
     document.documentElement.classList.remove('ct-trio-on', 'nsd-panic-on', 'scr-active', 'nsd-intro-on');
-    window.ctState.index = 0;
+
+    // С какой реплики начинать. Обычно с первой, но есть два случая, когда
+    // суд подхватывается с середины: продолжение с сохранения и прямой
+    // заход на нужную сцену (window.__ctStartTrio).
+    var start = 0;
+    var lines = window.CT_LINES || [];
+    if (window.__ctStartTrio) {
+      var want = window.__ctStartTrio; window.__ctStartTrio = null;
+      for (var q = 0; q < lines.length; q++) {
+        if (lines[q] && lines[q].trio === want) { start = q; break; }
+      }
+    } else {
+      // Harlowe сохраняет только свои переменные, а номер реплики живёт в
+      // JS — поэтому при записи слота мы кладём его рядом и забираем здесь.
+      try {
+        var slot = localStorage.getItem('carnage-load-slot');
+        if (slot) {
+          localStorage.removeItem('carnage-load-slot');
+          var raw = localStorage.getItem('carnage-trial-' + slot);
+          var d = raw ? JSON.parse(raw) : null;
+          if (d && d.trial && d.index > 0 && d.index < lines.length) start = d.index;
+        }
+      } catch (e) {}
+    }
+
+    window.ctState.index = start;
     window.ctState.typing = false;
     var zone = document.getElementById('ct-clickzone');
     if (zone && !zone._ctBound) { zone._ctBound = true; zone.addEventListener('click', function () { window.ctAdvance(); }); }
     // Заставка «КЛАССНЫЙ СУД» играет только на пассаже подготовки,
     // здесь сразу начинается диалог.
     if (window.nsdState && window.nsdState.active) return;
-    window.ctRenderLine(0);
+    window.ctRenderLine(start);
   };
+
+  // Слоты сохранения: рядом с записью Harlowe храним позицию в суде и
+  // половину суда. Без этого загрузка с любого места суда возвращала
+  // игрока к самой первой реплике — состояние Harlowe одно и то же на
+  // весь пассаж, а всё остальное живёт в JS.
+  function ctSaveSlotOf(link) {
+    var row = link.closest && link.closest('.save-modal-row');
+    if (!row || !row.parentNode) return null;
+    var rows = Array.prototype.slice.call(row.parentNode.querySelectorAll('.save-modal-row'));
+    var i = rows.indexOf(row);
+    return i >= 0 ? 'slot' + (i + 1) : null;
+  }
+  document.addEventListener('click', function (e) {
+    var link = e.target && e.target.closest &&
+      e.target.closest('#save-modal-overlay .save-modal-row tw-link, #save-modal-overlay .save-modal-row .tw-link');
+    if (!link) return;
+    var slot = ctSaveSlotOf(link);
+    if (!slot) return;
+    var kind = (link.textContent || '').trim();
+    try {
+      if (kind === 'Сохранить') {
+        var onTrial = !!document.getElementById('ct-root');
+        localStorage.setItem('carnage-trial-' + slot, JSON.stringify({
+          trial: onTrial,
+          index: onTrial ? (window.ctState.index || 0) : 0,
+          part: window.__trialPart === 2 ? 2 : 1
+        }));
+      } else if (kind === 'Загрузить') {
+        var raw = localStorage.getItem('carnage-trial-' + slot);
+        var d = raw ? JSON.parse(raw) : null;
+        // половину суда надо выставить ДО того, как пассаж соберёт реплики
+        if (d && d.part === 2) window.__trialPart = 2; else window.__trialPart = null;
+        if (d && d.trial) localStorage.setItem('carnage-load-slot', slot);
+        else localStorage.removeItem('carnage-load-slot');
+      }
+    } catch (err) {}
+  }, true);
 
   // ============================================================
   // НОН-СТОП ДЕБАТЫ v6
@@ -2443,6 +2518,7 @@ window.ctRenderLine = function (idx) {
       next();
     }
     function onClick(e) {
+      if (ctIsChromeClick(e)) return;
       e.stopPropagation();
       if (!done) { cancelAnimationFrame(window.ctTypeRaf); tnode.data = text; done = true; return; }
       close();
@@ -3509,6 +3585,7 @@ window.ctRenderLine = function (idx) {
     var guard = setTimeout(function () { tnode.data = text; typed = true; }, text.length * CT_CHAR_MS + 400);
 
     function onClick(e) {
+      if (ctIsChromeClick(e)) return;
       e.stopPropagation();
       if (!typed) { cancelAnimationFrame(window.swSayRaf); tnode.data = text; typed = true; return; }
       clearTimeout(guard);
@@ -4535,6 +4612,13 @@ window.ctRenderLine = function (idx) {
         var live = p.getAttribute('data-key') === st.who;
         p.classList.toggle('is-live', live);
         p.classList.toggle('is-speaking', live);
+        // Окно гасло, но текст в нём оставался. На узком экране три окна
+        // стоят друг под другом, и прошлые реплики копились на экране —
+        // получалось наслоение. Чужую реплику убираем сразу.
+        if (!live) {
+          var old = p.querySelector('.ctt-text');
+          if (old) old.textContent = '';
+        }
       });
       var zones = el.querySelectorAll('.ct3-zone');
       Array.prototype.forEach.call(zones, function (z, k) { z.classList.toggle('is-live', k < st.show); });
@@ -4570,6 +4654,7 @@ window.ctRenderLine = function (idx) {
       var guard = setTimeout(function () { ctFillSegments(segs, total); typed = true; }, total * CT_CHAR_MS + 400);
 
       function onClick(e) {
+        if (ctIsChromeClick(e)) return;
         e.stopPropagation();
         if (!typed) { cancelAnimationFrame(raf); ctFillSegments(segs, total); typed = true; return; }
         clearTimeout(guard);
