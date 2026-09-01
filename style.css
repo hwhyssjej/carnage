@@ -7402,3 +7402,181 @@ html:has(tw-story[tags*="kv-start"]) tw-sidebar { display: none !important; }
    Исключение — подсказка Треска между кругами: она рисуется этим же окном. */
 html.nsd-active #ct-root:not(.nsd-hint-on) .ct-dialogue-box,
 html.nsd-active #ct-root:not(.nsd-hint-on) #ct-namecard { display: none !important; }
+
+/* ==========================================================================
+   ОКНО СОХРАНЕНИЙ — сорок слотов
+   Панель крупная и на компьютере, и на телефоне; список прокручивается
+   внутри, шапка с вкладками и крестиком остаётся на месте. Кнопки в строках
+   не сжимаются: подпись должна помещаться целиком в любом языке интерфейса.
+   ========================================================================== */
+#save-modal-overlay {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: clamp(8px, 3vh, 40px) clamp(8px, 3vw, 32px) !important;
+}
+#save-modal {
+  width: min(94vw, 780px) !important;
+  max-width: none !important;
+  max-height: min(88vh, 940px) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+#save-modal .sm-head {
+  flex: 0 0 auto !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  padding: clamp(12px, 2vw, 20px) clamp(14px, 2.4vw, 26px) !important;
+  border-bottom: 1px solid rgba(0,229,255,0.28) !important;
+}
+#save-modal .save-modal-tabs {
+  display: flex !important;
+  gap: clamp(6px, 1.2vw, 12px) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+}
+#save-modal .sm-tab {
+  appearance: none !important;
+  padding: 10px clamp(14px, 2.6vw, 26px) !important;
+  background: transparent !important;
+  border: 2px solid rgba(0,229,255,0.5) !important;
+  border-radius: 999px !important;
+  color: #58d8ff !important;
+  font-family: var(--game-font, sans-serif) !important;
+  font-weight: 700 !important;
+  font-size: clamp(12px, 1.5vw, 15px) !important;
+  letter-spacing: 2px !important;
+  text-transform: uppercase !important;
+  white-space: nowrap !important;
+  cursor: pointer !important;
+  transition: color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease !important;
+}
+#save-modal .sm-tab:hover { color: #fff !important; box-shadow: 0 0 14px rgba(0,229,255,0.4) !important; }
+#save-modal .sm-tab.is-on {
+  background: rgba(0,229,255,0.14) !important;
+  border-color: #00e5ff !important;
+  color: #fff !important;
+  box-shadow: 0 0 16px rgba(0,229,255,0.45) !important;
+}
+#save-modal .save-modal-close {
+  position: static !important;
+  margin: 0 !important;
+  flex: 0 0 auto !important;
+}
+#save-modal .save-modal-close tw-link,
+#save-modal .save-modal-close .tw-link {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 38px !important;
+  height: 38px !important;
+  border-radius: 50% !important;
+  border: 2px solid rgba(255,43,208,0.55) !important;
+  color: #ff2bd0 !important;
+  font-size: 17px !important;
+  line-height: 1 !important;
+  text-decoration: none !important;
+}
+#save-modal .save-modal-close tw-link:hover { color: #fff !important; border-color: #ff2bd0 !important; }
+
+#save-modal .sm-list {
+  display: none !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  padding: clamp(6px, 1.4vw, 14px) clamp(14px, 2.4vw, 26px) clamp(14px, 2.4vw, 24px) !important;
+}
+#save-modal .sm-list.is-on { display: block !important; }
+#save-modal .sm-list::-webkit-scrollbar { width: 9px; }
+#save-modal .sm-list::-webkit-scrollbar-thumb { background: rgba(0,229,255,0.4); border-radius: 9px; }
+
+#save-modal .save-modal-row {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto auto !important;
+  align-items: center !important;
+  gap: clamp(8px, 1.6vw, 18px) !important;
+  padding: clamp(8px, 1.2vh, 13px) 0 !important;
+  border-bottom: 1px solid rgba(255,255,255,0.09) !important;
+  margin: 0 !important;
+}
+#save-modal .save-modal-row:last-child { border-bottom: 0 !important; }
+#save-modal .save-modal-slot-name {
+  font-family: var(--game-font, sans-serif) !important;
+  font-weight: 700 !important;
+  font-size: clamp(13px, 1.7vw, 18px) !important;
+  color: #7fe4ff !important;
+  letter-spacing: 1px !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+#save-modal .save-modal-status {
+  font-family: var(--game-font, sans-serif) !important;
+  font-size: clamp(10px, 1.2vw, 13px) !important;
+  letter-spacing: 1.5px !important;
+  text-transform: uppercase !important;
+  white-space: nowrap !important;
+  text-align: right !important;
+  min-width: 5.4em !important;
+}
+#save-modal .save-modal-status-full  { color: #ff5f9e !important; }
+#save-modal .save-modal-status-empty { color: #6c6382 !important; }
+#save-modal .save-modal-row tw-link,
+#save-modal .save-modal-row .tw-link {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: clamp(96px, 13vw, 134px) !important;
+  padding: 9px clamp(12px, 1.8vw, 20px) !important;
+  border: 2px solid rgba(255,43,208,0.6) !important;
+  border-radius: 999px !important;
+  background: rgba(255,43,208,0.08) !important;
+  color: #ff5f9e !important;
+  font-family: var(--game-font, sans-serif) !important;
+  font-weight: 700 !important;
+  font-size: clamp(11px, 1.35vw, 14px) !important;
+  letter-spacing: 1.6px !important;
+  text-transform: uppercase !important;
+  text-decoration: none !important;
+  white-space: nowrap !important;
+  transition: color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease !important;
+}
+#save-modal .save-modal-row tw-link:hover {
+  color: #fff !important;
+  background: rgba(255,43,208,0.2) !important;
+  box-shadow: 0 0 16px rgba(255,43,208,0.5) !important;
+}
+/* Пустой слот грузить нечего — кнопка притушена */
+#save-modal .sm-list[data-list="load"] .save-modal-row.is-empty tw-link {
+  opacity: 0.35 !important;
+  border-color: rgba(255,255,255,0.2) !important;
+  color: #8d86a3 !important;
+  background: transparent !important;
+  cursor: default !important;
+  box-shadow: none !important;
+}
+/* На телефоне строка остаётся в одну линию: так на экран помещается вдвое
+   больше слотов. Всё держится за счёт узких отступов и короткого статуса. */
+@media (max-width: 620px) {
+  #save-modal { width: 96vw !important; max-height: 90vh !important; }
+  #save-modal .sm-head { padding: 10px 12px !important; }
+  #save-modal .sm-tab { padding: 8px 14px !important; font-size: 12px !important; letter-spacing: 1px !important; }
+  #save-modal .save-modal-close tw-link { width: 32px !important; height: 32px !important; font-size: 15px !important; }
+  #save-modal .sm-list { padding: 4px 12px 12px !important; }
+  #save-modal .save-modal-row { gap: 8px !important; padding: 9px 0 !important; }
+  #save-modal .save-modal-slot-name { font-size: 14px !important; letter-spacing: 0 !important; }
+  #save-modal .save-modal-status { font-size: 10px !important; letter-spacing: 1px !important; min-width: 0 !important; }
+  #save-modal .save-modal-row tw-link,
+  #save-modal .save-modal-row .tw-link {
+    min-width: 0 !important;
+    padding: 8px 12px !important;
+    font-size: 11px !important;
+    letter-spacing: 1px !important;
+  }
+}

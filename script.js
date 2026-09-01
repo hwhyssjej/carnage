@@ -1256,11 +1256,62 @@ window.ctRenderLine = function (idx) {
   // весь пассаж, а всё остальное живёт в JS.
   function ctSaveSlotOf(link) {
     var row = link.closest && link.closest('.save-modal-row');
+    return row ? smRowSlot(row) : null;
+  }
+
+  // ============================================================
+  // ОКНО СОХРАНЕНИЙ
+  // Слотов сорок, и оба списка — запись и загрузка — лежат в разметке
+  // сразу. Переключение вкладок и отметки «Занято/Пусто» делает код:
+  // перерисовка средствами движка собирала окно заново на каждое нажатие,
+  // из-за чего оно моргало и прокрутка прыгала к первому слоту.
+  // ============================================================
+  function smIfid() {
+    var d = document.querySelector('tw-storydata');
+    return d ? d.getAttribute('ifid') : '';
+  }
+  function smHas(slot) {
+    try { return localStorage.getItem('(Saved Game ' + smIfid() + ') ' + slot) !== null; }
+    catch (e) { return false; }
+  }
+  function smRowSlot(row) {
     if (!row || !row.parentNode) return null;
     var rows = Array.prototype.slice.call(row.parentNode.querySelectorAll('.save-modal-row'));
     var i = rows.indexOf(row);
     return i >= 0 ? 'slot' + (i + 1) : null;
   }
+  function smRefresh(root) {
+    Array.prototype.forEach.call(root.querySelectorAll('.save-modal-row'), function (row) {
+      var slot = smRowSlot(row);
+      var full = slot ? smHas(slot) : false;
+      var st = row.querySelector('.save-modal-status');
+      if (st) {
+        st.textContent = full ? 'Занято' : 'Пусто';
+        st.classList.toggle('save-modal-status-full', full);
+        st.classList.toggle('save-modal-status-empty', !full);
+      }
+      row.classList.toggle('is-full', full);
+      row.classList.toggle('is-empty', !full);
+    });
+  }
+  function smEnsure() {
+    var root = document.getElementById('save-modal-overlay');
+    if (!root || root.getAttribute('data-sm') === '1') return;
+    root.setAttribute('data-sm', '1');
+    var tabs = root.querySelectorAll('.sm-tab');
+    Array.prototype.forEach.call(tabs, function (t) {
+      t.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var want = t.getAttribute('data-tab');
+        Array.prototype.forEach.call(tabs, function (x) { x.classList.toggle('is-on', x === t); });
+        Array.prototype.forEach.call(root.querySelectorAll('.sm-list'), function (l) {
+          l.classList.toggle('is-on', l.getAttribute('data-list') === want);
+        });
+      });
+    });
+    smRefresh(root);
+  }
+
   document.addEventListener('click', function (e) {
     var link = e.target && e.target.closest &&
       e.target.closest('#save-modal-overlay .save-modal-row tw-link, #save-modal-overlay .save-modal-row .tw-link');
@@ -1268,6 +1319,18 @@ window.ctRenderLine = function (idx) {
     var slot = ctSaveSlotOf(link);
     if (!slot) return;
     var kind = (link.textContent || '').trim();
+    // пустой слот грузить нечего — движок бы выдал ошибку прямо в окно
+    if (kind === 'Загрузить' && !smHas(slot)) {
+      e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+      return;
+    }
+    if (kind === 'Сохранить') {
+      // отметку «Занято» ставим сами, когда запись уже прошла
+      setTimeout(function () {
+        var root = document.getElementById('save-modal-overlay');
+        if (root) smRefresh(root);
+      }, 40);
+    }
     try {
       if (kind === 'Сохранить') {
         var onTrial = !!document.getElementById('ct-root');
@@ -5568,6 +5631,7 @@ window.ctRenderLine = function (idx) {
   function runUpdates() {
     checkAndPlay();
     kvMusicEnsure();
+    smEnsure();
     ensureMuteButton();
     ensureGameMenu();
     ensureCtAutoButton();
