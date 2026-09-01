@@ -7780,3 +7780,72 @@ html {
   #kv-chapters .kvc-num { font-size: clamp(15px, 2.4vw, 21px) !important; }
   #kv-chapters .kvc-cap { font-size: clamp(18px, 3.4vw, 30px) !important; }
 }
+
+/* ==========================================================================
+   ЛЕНТА ГЛАВ
+   Выбранная строка в центре и во весь размер, соседние мельче, дальние —
+   ещё мельче. Масштаб задаётся переменной --s, а отрицательные поля
+   подтягивают вёрстку под уменьшенный размер: иначе между мелкими
+   строками зияли бы пустые полосы.
+   ========================================================================== */
+#kv-chapters .kvc-view {
+  position: relative !important;
+  width: min(94vw, 620px) !important;
+  height: min(64vh, 470px) !important;
+  overflow: hidden !important;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 16%, #000 84%, transparent 100%) !important;
+  mask-image: linear-gradient(180deg, transparent 0%, #000 16%, #000 84%, transparent 100%) !important;
+}
+#kv-chapters .kvc-track {
+  position: relative !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: clamp(6px, 1vh, 12px) !important;
+  padding: 0 4px !important;
+  transition: transform 0.42s cubic-bezier(.2,.8,.25,1) !important;
+  will-change: transform;
+}
+#kv-chapters .kvc-row {
+  --s: 0.58;
+  --kvc-h: clamp(54px, 8.4vh, 78px) !important;
+  height: var(--kvc-h) !important;
+  max-height: none !important;
+  padding: 0 clamp(12px, 2.4vw, 20px) !important;
+  margin-block: calc((var(--s) - 1) * var(--kvc-h) / 2) !important;
+  transform: scale(var(--s)) !important;
+  transform-origin: 50% 50% !important;
+  opacity: 0.26;
+  animation: none !important;
+  transition: transform 0.42s cubic-bezier(.2,.8,.25,1),
+              margin 0.42s cubic-bezier(.2,.8,.25,1),
+              opacity 0.42s ease, border-color 0.3s ease, box-shadow 0.3s ease !important;
+  cursor: pointer !important;
+}
+#kv-chapters .kvc-row[data-d="0"] { --s: 1;    opacity: 1; }
+#kv-chapters .kvc-row[data-d="1"] { --s: 0.84; opacity: 0.7; }
+#kv-chapters .kvc-row[data-d="2"] { --s: 0.7;  opacity: 0.45; }
+#kv-chapters .kvc-row[data-d="3"] { --s: 0.6;  opacity: 0.26; }
+/* Закрытая глава: цветом и обесцвечиванием, без прозрачности — она занята
+   под расстояние от центра. */
+#kv-chapters .kvc-row.is-locked {
+  opacity: 0.26;
+  filter: grayscale(0.75) !important;
+}
+#kv-chapters .kvc-row.is-locked[data-d="0"] { opacity: 0.85; }
+#kv-chapters .kvc-row.is-locked[data-d="1"] { opacity: 0.6; }
+#kv-chapters .kvc-row.is-locked[data-d="2"] { opacity: 0.38; }
+#kv-chapters .kvc-row.is-open  { cursor: default !important; }
+#kv-chapters .kvc-row.is-focus.is-open {
+  box-shadow: 0 0 26px rgba(255,43,208,0.5), inset 0 0 22px rgba(255,43,208,0.1) !important;
+}
+#kv-chapters .kvc-row:not(.is-focus) { box-shadow: none !important; }
+/* Подсказка о листании */
+#kv-chapters .kvc-back { margin-top: clamp(2px, 1vh, 10px) !important; }
+@media (max-height: 820px) and (min-width: 621px) {
+  #kv-chapters .kvc-view { height: min(58vh, 420px) !important; }
+  #kv-chapters .kvc-row { --kvc-h: clamp(50px, 7.6vh, 70px) !important; }
+}
+@media (max-width: 620px) {
+  #kv-chapters .kvc-view { width: 94vw !important; height: min(58vh, 430px) !important; }
+  #kv-chapters .kvc-row { --kvc-h: clamp(50px, 8vh, 66px) !important; padding: 0 11px !important; }
+}

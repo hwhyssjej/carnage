@@ -7797,6 +7797,75 @@ html {
   #kv-chapters .kvc-num { font-size: clamp(15px, 2.4vw, 21px) !important; }
   #kv-chapters .kvc-cap { font-size: clamp(18px, 3.4vw, 30px) !important; }
 }
+
+/* ==========================================================================
+   ЛЕНТА ГЛАВ
+   Выбранная строка в центре и во весь размер, соседние мельче, дальние —
+   ещё мельче. Масштаб задаётся переменной --s, а отрицательные поля
+   подтягивают вёрстку под уменьшенный размер: иначе между мелкими
+   строками зияли бы пустые полосы.
+   ========================================================================== */
+#kv-chapters .kvc-view {
+  position: relative !important;
+  width: min(94vw, 620px) !important;
+  height: min(64vh, 470px) !important;
+  overflow: hidden !important;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 16%, #000 84%, transparent 100%) !important;
+  mask-image: linear-gradient(180deg, transparent 0%, #000 16%, #000 84%, transparent 100%) !important;
+}
+#kv-chapters .kvc-track {
+  position: relative !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: clamp(6px, 1vh, 12px) !important;
+  padding: 0 4px !important;
+  transition: transform 0.42s cubic-bezier(.2,.8,.25,1) !important;
+  will-change: transform;
+}
+#kv-chapters .kvc-row {
+  --s: 0.58;
+  --kvc-h: clamp(54px, 8.4vh, 78px) !important;
+  height: var(--kvc-h) !important;
+  max-height: none !important;
+  padding: 0 clamp(12px, 2.4vw, 20px) !important;
+  margin-block: calc((var(--s) - 1) * var(--kvc-h) / 2) !important;
+  transform: scale(var(--s)) !important;
+  transform-origin: 50% 50% !important;
+  opacity: 0.26;
+  animation: none !important;
+  transition: transform 0.42s cubic-bezier(.2,.8,.25,1),
+              margin 0.42s cubic-bezier(.2,.8,.25,1),
+              opacity 0.42s ease, border-color 0.3s ease, box-shadow 0.3s ease !important;
+  cursor: pointer !important;
+}
+#kv-chapters .kvc-row[data-d="0"] { --s: 1;    opacity: 1; }
+#kv-chapters .kvc-row[data-d="1"] { --s: 0.84; opacity: 0.7; }
+#kv-chapters .kvc-row[data-d="2"] { --s: 0.7;  opacity: 0.45; }
+#kv-chapters .kvc-row[data-d="3"] { --s: 0.6;  opacity: 0.26; }
+/* Закрытая глава: цветом и обесцвечиванием, без прозрачности — она занята
+   под расстояние от центра. */
+#kv-chapters .kvc-row.is-locked {
+  opacity: 0.26;
+  filter: grayscale(0.75) !important;
+}
+#kv-chapters .kvc-row.is-locked[data-d="0"] { opacity: 0.85; }
+#kv-chapters .kvc-row.is-locked[data-d="1"] { opacity: 0.6; }
+#kv-chapters .kvc-row.is-locked[data-d="2"] { opacity: 0.38; }
+#kv-chapters .kvc-row.is-open  { cursor: default !important; }
+#kv-chapters .kvc-row.is-focus.is-open {
+  box-shadow: 0 0 26px rgba(255,43,208,0.5), inset 0 0 22px rgba(255,43,208,0.1) !important;
+}
+#kv-chapters .kvc-row:not(.is-focus) { box-shadow: none !important; }
+/* Подсказка о листании */
+#kv-chapters .kvc-back { margin-top: clamp(2px, 1vh, 10px) !important; }
+@media (max-height: 820px) and (min-width: 621px) {
+  #kv-chapters .kvc-view { height: min(58vh, 420px) !important; }
+  #kv-chapters .kvc-row { --kvc-h: clamp(50px, 7.6vh, 70px) !important; }
+}
+@media (max-width: 620px) {
+  #kv-chapters .kvc-view { width: 94vw !important; height: min(58vh, 430px) !important; }
+  #kv-chapters .kvc-row { --kvc-h: clamp(50px, 8vh, 66px) !important; padding: 0 11px !important; }
+}
 </style><script role="script" id="twine-user-script" type="text/twine-javascript">(function () {
 
   function HS() { try { return (typeof State !== 'undefined' && State && State.variables) ? State : null; } catch (e) { return null; } }
@@ -7883,9 +7952,12 @@ html {
         if (vol <= 0) { clearInterval(window.fadeTimer); window.bgAudio.pause(); if (onComplete) onComplete(); }
       } else {
         var target = window.isMuted ? 0 : MAX_VOLUME;
-        vol = Math.min(target, vol + FADE_STEP);
+        // после меню тема поднимается медленнее обычного — переход должен
+        // быть слышен как наплыв, а не как включение
+        var step = window.kvSlowIn ? (MAX_VOLUME / (KV_IN_MS / FADE_INTERVAL)) : FADE_STEP;
+        vol = Math.min(target, vol + step);
         window.bgAudio.volume = vol;
-        if (vol >= target) clearInterval(window.fadeTimer);
+        if (vol >= target) { clearInterval(window.fadeTimer); window.kvSlowIn = false; }
       }
     }, FADE_INTERVAL);
   }
@@ -13398,6 +13470,105 @@ window.ctRenderLine = function (idx) {
   // нажатии клавиши. Уходя с титула, тему гасим коротким затуханием:
   // дальше у главы своя музыка, и накладываться они не должны.
   // ============================================================
+  // ============================================================
+  // ВЫБОР ГЛАВЫ — лента
+  // Выбранная глава в центре и крупнее всех, соседние мельче, дальние ещё
+  // мельче. Листается колесом, свайпом, стрелками и нажатием на соседнюю
+  // строку. Смещение ленты считаем по вёрстке (offsetTop), а не по
+  // прямоугольникам на экране: строки масштабируются, и во время анимации
+  // экранные координаты врут.
+  // ============================================================
+  var KVC_MAX_D = 3;
+  var KVC_SCALE = [1, 0.84, 0.7, 0.6];   // должно совпадать с --s в стилях
+  function kvcMargin(row, H) {
+    var d = Math.min(KVC_MAX_D, parseInt(row.getAttribute('data-d'), 10) || 0);
+    return (KVC_SCALE[d] - 1) * H / 2;
+  }
+  function kvcApply(root, focus) {
+    var rows = root.querySelectorAll('.kvc-row');
+    var view = root.querySelector('.kvc-view');
+    var track = root.querySelector('.kvc-track');
+    if (!rows.length || !view || !track) return;
+    focus = Math.max(0, Math.min(rows.length - 1, focus));
+    root.kvcFocus = focus;
+    Array.prototype.forEach.call(rows, function (r, i) {
+      var d = Math.min(KVC_MAX_D, Math.abs(i - focus));
+      r.setAttribute('data-d', String(d));
+      r.classList.toggle('is-focus', i === focus);
+    });
+    // Поля строк тоже анимируются, поэтому в момент вызова вёрстка ещё
+    // старая и offsetTop врёт. Считаем конечное положение сами: высота
+    // строки постоянна, а поля выводятся из масштаба — таблица та же, что
+    // в стилях.
+    var H = rows[0].offsetHeight;
+    var G = parseFloat(getComputedStyle(track).rowGap) || 0;
+    var center = 0;
+    for (var i = 0; i < focus; i++) center += H + 2 * kvcMargin(rows[i], H) + G;
+    center += kvcMargin(rows[focus], H) + H / 2;
+    var y = view.clientHeight / 2 - center;
+    track.style.transform = 'translateY(' + Math.round(y) + 'px)';
+  }
+  function kvcMove(root, step) {
+    kvcApply(root, (root.kvcFocus || 0) + step);
+  }
+  function kvcEnsure() {
+    var root = document.getElementById('kv-chapters');
+    if (!root || root.getAttribute('data-kvc') === '1') return;
+    root.setAttribute('data-kvc', '1');
+    var rows = root.querySelectorAll('.kvc-row');
+    // на старте выбрана единственная открытая глава
+    var start = 0;
+    Array.prototype.forEach.call(rows, function (r, i) {
+      if (r.classList.contains('is-open')) start = i;
+    });
+    kvcApply(root, start);
+    // пересобираем после подгрузки шрифтов и на смену размера окна
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(function () { kvcApply(root, root.kvcFocus || start); }).catch(function () {});
+    }
+    var onResize = function () {
+      if (!root.isConnected) { window.removeEventListener('resize', onResize); return; }
+      kvcApply(root, root.kvcFocus || start);
+    };
+    window.addEventListener('resize', onResize);
+
+    root.addEventListener('wheel', function (e) {
+      e.preventDefault();
+      if (root.kvcLock) return;
+      root.kvcLock = true;
+      setTimeout(function () { root.kvcLock = false; }, 180);
+      kvcMove(root, e.deltaY > 0 ? 1 : -1);
+    }, { passive: false });
+
+    var y0 = null;
+    root.addEventListener('touchstart', function (e) { y0 = e.touches[0].clientY; }, { passive: true });
+    root.addEventListener('touchend', function (e) {
+      if (y0 === null) return;
+      var dy = (e.changedTouches[0].clientY - y0);
+      y0 = null;
+      if (Math.abs(dy) > 28) kvcMove(root, dy < 0 ? 1 : -1);
+    }, { passive: true });
+
+    document.addEventListener('keydown', function (e) {
+      if (!document.getElementById('kv-chapters')) return;
+      if (e.key === 'ArrowDown') { e.preventDefault(); kvcMove(root, 1); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); kvcMove(root, -1); }
+      else if (e.key === 'Enter') {
+        var f = root.querySelectorAll('.kvc-row')[root.kvcFocus || 0];
+        var link = f && f.querySelector('tw-link, .tw-link');
+        if (link) link.click();
+      }
+    });
+
+    Array.prototype.forEach.call(rows, function (r, i) {
+      r.addEventListener('click', function (e) {
+        // по кнопке «ИГРАТЬ» пропускаем — её обрабатывает сам движок
+        if (e.target && e.target.closest && e.target.closest('tw-link, .tw-link')) return;
+        if (i !== (root.kvcFocus || 0)) { e.stopPropagation(); kvcApply(root, i); }
+      });
+    });
+  }
+
   // Harlowe держит содержимое нового пассажа в обёртке перехода и
   // разворачивает её только через 0.8 с. Смена родителя перезапускает
   // анимации, и экраны меню проигрывались дважды — вынимаем их сами.
@@ -13413,13 +13584,18 @@ window.ctRenderLine = function (idx) {
   var KV_MUSIC = 'https://lambda.vgmtreasurechest.com/soundtracks/new-danganronpa-v3-o.s.t.-white/pmqtvwxw/1-02.%20Danganronpa%21%20V3%21.mp3';
   var kvAudio = null;
   function kvMusicKick() { if (kvAudio) kvAudio.play().catch(function () {}); }
-  var KV_FADE_MS = 1300;
+  // Уход темы меню и подъём темы главы — по три с лишним секунды:
+  // на коротком затухании переход слышался обрывом.
+  var KV_FADE_MS = 3200;
+  var KV_IN_MS = 3200;
   function kvMusicStop() {
     if (!kvAudio) return;
     var a = kvAudio;
     kvAudio = null;
     document.removeEventListener('pointerdown', kvMusicKick, true);
     document.removeEventListener('keydown', kvMusicKick, true);
+    // тема главы, которая сейчас вступит, поднимается так же неспешно
+    window.kvSlowIn = true;
     // Уход по кривой, а не линейкой: линейное затухание на слух обрывается
     // у самого конца, и переход в тему главы получался резким.
     var from = a.volume, t0 = performance.now();
@@ -13446,6 +13622,7 @@ window.ctRenderLine = function (idx) {
 
   function runUpdates() {
     kvUnwrapScreen();
+    kvcEnsure();
     checkAndPlay();
     kvMusicEnsure();
     smEnsure();
@@ -16102,7 +16279,6 @@ if (window.initClassTrialDialogue) window.initClassTrialDialogue();
     &lt;/svg&gt;
   &lt;/div&gt;
   &lt;h1 class=&quot;kv-name&quot;&gt;КАРНАДЖ&lt;/h1&gt;
-  &lt;div class=&quot;kv-sub&quot;&gt;Глава 3 &amp;middot; Замкнутая цепь&lt;/div&gt;
   &lt;div class=&quot;kv-go&quot;&gt;[[НАЧАТЬ ИГРУ-&gt;Выбор главы]]&lt;/div&gt;
   &lt;button type=&quot;button&quot; id=&quot;kv-saves&quot; class=&quot;kv-saves&quot;&gt;СОХРАНЕНИЯ&lt;/button&gt;
 &lt;/div&gt;</tw-passagedata><tw-passagedata pid="53" name="Треск спать" tags="peace darkness-time" position="700,760" size="100,100">Я пошел обратно на склад. Местом для ночлега я выбрал одинокую комнату внизу подвала. Я скрутился на полу и подпер щеку рукой. В комнате было темно и тихо, но спать на холодном полу было почти невозможно.
@@ -16112,7 +16288,7 @@ if (window.initClassTrialDialogue) window.initClassTrialDialogue();
 Я долго ворочался, ерзал и менял позу, пока наконец не нашел удобное положение и не заснул.
 &lt;hr&gt;
 ==&gt;
-[[Далее-&gt;Секрет Фусту и Стервы]]</tw-passagedata><tw-passagedata pid="54" name="Последний аргумент" tags="" position="900,760" size="100,100">&lt;script&gt;window.__trialPart = 2; window.__ctStartTrio = &#39;trio2&#39;;&lt;/script&gt;\n(go-to: &quot;Классный суд&quot;)</tw-passagedata><tw-passagedata pid="55" name="Выбор главы" tags="kv-start" position="200,50" size="100,100">&lt;div id=&quot;kv-chapters&quot; class=&quot;kv-screen&quot;&gt;&lt;div class=&quot;kv-rays&quot;&gt;&lt;/div&gt;&lt;h2 class=&quot;kvc-cap&quot;&gt;ВЫБОР ГЛАВЫ&lt;/h2&gt;&lt;div class=&quot;kvc-list&quot;&gt;&lt;div class=&quot;kvc-row is-locked&quot; aria-disabled=&quot;true&quot;&gt;&lt;span class=&quot;kvc-num&quot;&gt;—&lt;/span&gt;&lt;span class=&quot;kvc-name&quot;&gt;ПРОЛОГ&lt;/span&gt;&lt;span class=&quot;kvc-lock&quot;&gt;НЕДОСТУПНО&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;kvc-row is-locked&quot; aria-disabled=&quot;true&quot;&gt;&lt;span class=&quot;kvc-num&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;kvc-name&quot;&gt;ГЛАВА 1&lt;/span&gt;&lt;span class=&quot;kvc-lock&quot;&gt;НЕДОСТУПНО&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;kvc-row is-locked&quot; aria-disabled=&quot;true&quot;&gt;&lt;span class=&quot;kvc-num&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;kvc-name&quot;&gt;ГЛАВА 2&lt;/span&gt;&lt;span class=&quot;kvc-lock&quot;&gt;НЕДОСТУПНО&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;kvc-row is-open&quot;&gt;&lt;span class=&quot;kvc-num&quot;&gt;3&lt;/span&gt;&lt;span class=&quot;kvc-name&quot;&gt;ГЛАВА 3&lt;i class=&quot;kvc-sub&quot;&gt;Замкнутая цепь&lt;/i&gt;&lt;/span&gt;&lt;span class=&quot;kvc-go&quot;&gt;[[ИГРАТЬ-&gt;3 глава]]&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;kvc-row is-locked&quot; aria-disabled=&quot;true&quot;&gt;&lt;span class=&quot;kvc-num&quot;&gt;4&lt;/span&gt;&lt;span class=&quot;kvc-name&quot;&gt;ГЛАВА 4&lt;/span&gt;&lt;span class=&quot;kvc-lock&quot;&gt;НЕДОСТУПНО&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;kvc-row is-locked&quot; aria-disabled=&quot;true&quot;&gt;&lt;span class=&quot;kvc-num&quot;&gt;5&lt;/span&gt;&lt;span class=&quot;kvc-name&quot;&gt;ГЛАВА 5&lt;/span&gt;&lt;span class=&quot;kvc-lock&quot;&gt;НЕДОСТУПНО&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;kvc-row is-locked&quot; aria-disabled=&quot;true&quot;&gt;&lt;span class=&quot;kvc-num&quot;&gt;6&lt;/span&gt;&lt;span class=&quot;kvc-name&quot;&gt;ГЛАВА 6&lt;/span&gt;&lt;span class=&quot;kvc-lock&quot;&gt;НЕДОСТУПНО&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;kvc-row is-locked&quot; aria-disabled=&quot;true&quot;&gt;&lt;span class=&quot;kvc-num&quot;&gt;—&lt;/span&gt;&lt;span class=&quot;kvc-name&quot;&gt;ЭПИЛОГ&lt;/span&gt;&lt;span class=&quot;kvc-lock&quot;&gt;НЕДОСТУПНО&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;kvc-back&quot;&gt;[[НАЗАД-&gt;Карнадж]]&lt;/div&gt;&lt;/div&gt;</tw-passagedata></tw-storydata>
+[[Далее-&gt;Секрет Фусту и Стервы]]</tw-passagedata><tw-passagedata pid="54" name="Последний аргумент" tags="" position="900,760" size="100,100">&lt;script&gt;window.__trialPart = 2; window.__ctStartTrio = &#39;trio2&#39;;&lt;/script&gt;\n(go-to: &quot;Классный суд&quot;)</tw-passagedata><tw-passagedata pid="55" name="Выбор главы" tags="kv-start" position="200,50" size="100,100">&lt;div id=&quot;kv-chapters&quot; class=&quot;kv-screen&quot;&gt;&lt;div class=&quot;kv-rays&quot;&gt;&lt;/div&gt;&lt;h2 class=&quot;kvc-cap&quot;&gt;ВЫБОР ГЛАВЫ&lt;/h2&gt;&lt;div class=&quot;kvc-view&quot;&gt;&lt;div class=&quot;kvc-track&quot;&gt;&lt;div class=&quot;kvc-row is-locked&quot; aria-disabled=&quot;true&quot;&gt;&lt;span class=&quot;kvc-num&quot;&gt;—&lt;/span&gt;&lt;span class=&quot;kvc-name&quot;&gt;ПРОЛОГ&lt;/span&gt;&lt;span class=&quot;kvc-lock&quot;&gt;НЕДОСТУПНО&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;kvc-row is-locked&quot; aria-disabled=&quot;true&quot;&gt;&lt;span class=&quot;kvc-num&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;kvc-name&quot;&gt;ГЛАВА 1&lt;/span&gt;&lt;span class=&quot;kvc-lock&quot;&gt;НЕДОСТУПНО&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;kvc-row is-locked&quot; aria-disabled=&quot;true&quot;&gt;&lt;span class=&quot;kvc-num&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;kvc-name&quot;&gt;ГЛАВА 2&lt;/span&gt;&lt;span class=&quot;kvc-lock&quot;&gt;НЕДОСТУПНО&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;kvc-row is-open&quot;&gt;&lt;span class=&quot;kvc-num&quot;&gt;3&lt;/span&gt;&lt;span class=&quot;kvc-name&quot;&gt;ГЛАВА 3&lt;i class=&quot;kvc-sub&quot;&gt;Замкнутая цепь&lt;/i&gt;&lt;/span&gt;&lt;span class=&quot;kvc-go&quot;&gt;[[ИГРАТЬ-&gt;3 глава]]&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;kvc-row is-locked&quot; aria-disabled=&quot;true&quot;&gt;&lt;span class=&quot;kvc-num&quot;&gt;4&lt;/span&gt;&lt;span class=&quot;kvc-name&quot;&gt;ГЛАВА 4&lt;/span&gt;&lt;span class=&quot;kvc-lock&quot;&gt;НЕДОСТУПНО&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;kvc-row is-locked&quot; aria-disabled=&quot;true&quot;&gt;&lt;span class=&quot;kvc-num&quot;&gt;5&lt;/span&gt;&lt;span class=&quot;kvc-name&quot;&gt;ГЛАВА 5&lt;/span&gt;&lt;span class=&quot;kvc-lock&quot;&gt;НЕДОСТУПНО&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;kvc-row is-locked&quot; aria-disabled=&quot;true&quot;&gt;&lt;span class=&quot;kvc-num&quot;&gt;6&lt;/span&gt;&lt;span class=&quot;kvc-name&quot;&gt;ГЛАВА 6&lt;/span&gt;&lt;span class=&quot;kvc-lock&quot;&gt;НЕДОСТУПНО&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;kvc-row is-locked&quot; aria-disabled=&quot;true&quot;&gt;&lt;span class=&quot;kvc-num&quot;&gt;—&lt;/span&gt;&lt;span class=&quot;kvc-name&quot;&gt;ЭПИЛОГ&lt;/span&gt;&lt;span class=&quot;kvc-lock&quot;&gt;НЕДОСТУПНО&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;kvc-back&quot;&gt;[[НАЗАД-&gt;Карнадж]]&lt;/div&gt;&lt;/div&gt;</tw-passagedata></tw-storydata>
 <script title="Twine engine code" data-main="harlowe">(function(){"use strict";
 var require,define;!function(){var e={},r={};require=function(i){var n=e[i];return n&&(r[i]=n[1].apply(void 0,n[0].map(require)),e[i]=void 0),r[i]},(define=function(r,i,n){if("function"==typeof r)return r();e[r]=[i,n]}).amd=!0}();/*!
  * https://github.com/paulmillr/es6-shim

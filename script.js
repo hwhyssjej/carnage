@@ -84,9 +84,12 @@
         if (vol <= 0) { clearInterval(window.fadeTimer); window.bgAudio.pause(); if (onComplete) onComplete(); }
       } else {
         var target = window.isMuted ? 0 : MAX_VOLUME;
-        vol = Math.min(target, vol + FADE_STEP);
+        // после меню тема поднимается медленнее обычного — переход должен
+        // быть слышен как наплыв, а не как включение
+        var step = window.kvSlowIn ? (MAX_VOLUME / (KV_IN_MS / FADE_INTERVAL)) : FADE_STEP;
+        vol = Math.min(target, vol + step);
         window.bgAudio.volume = vol;
-        if (vol >= target) clearInterval(window.fadeTimer);
+        if (vol >= target) { clearInterval(window.fadeTimer); window.kvSlowIn = false; }
       }
     }, FADE_INTERVAL);
   }
@@ -5599,6 +5602,105 @@ window.ctRenderLine = function (idx) {
   // нажатии клавиши. Уходя с титула, тему гасим коротким затуханием:
   // дальше у главы своя музыка, и накладываться они не должны.
   // ============================================================
+  // ============================================================
+  // ВЫБОР ГЛАВЫ — лента
+  // Выбранная глава в центре и крупнее всех, соседние мельче, дальние ещё
+  // мельче. Листается колесом, свайпом, стрелками и нажатием на соседнюю
+  // строку. Смещение ленты считаем по вёрстке (offsetTop), а не по
+  // прямоугольникам на экране: строки масштабируются, и во время анимации
+  // экранные координаты врут.
+  // ============================================================
+  var KVC_MAX_D = 3;
+  var KVC_SCALE = [1, 0.84, 0.7, 0.6];   // должно совпадать с --s в стилях
+  function kvcMargin(row, H) {
+    var d = Math.min(KVC_MAX_D, parseInt(row.getAttribute('data-d'), 10) || 0);
+    return (KVC_SCALE[d] - 1) * H / 2;
+  }
+  function kvcApply(root, focus) {
+    var rows = root.querySelectorAll('.kvc-row');
+    var view = root.querySelector('.kvc-view');
+    var track = root.querySelector('.kvc-track');
+    if (!rows.length || !view || !track) return;
+    focus = Math.max(0, Math.min(rows.length - 1, focus));
+    root.kvcFocus = focus;
+    Array.prototype.forEach.call(rows, function (r, i) {
+      var d = Math.min(KVC_MAX_D, Math.abs(i - focus));
+      r.setAttribute('data-d', String(d));
+      r.classList.toggle('is-focus', i === focus);
+    });
+    // Поля строк тоже анимируются, поэтому в момент вызова вёрстка ещё
+    // старая и offsetTop врёт. Считаем конечное положение сами: высота
+    // строки постоянна, а поля выводятся из масштаба — таблица та же, что
+    // в стилях.
+    var H = rows[0].offsetHeight;
+    var G = parseFloat(getComputedStyle(track).rowGap) || 0;
+    var center = 0;
+    for (var i = 0; i < focus; i++) center += H + 2 * kvcMargin(rows[i], H) + G;
+    center += kvcMargin(rows[focus], H) + H / 2;
+    var y = view.clientHeight / 2 - center;
+    track.style.transform = 'translateY(' + Math.round(y) + 'px)';
+  }
+  function kvcMove(root, step) {
+    kvcApply(root, (root.kvcFocus || 0) + step);
+  }
+  function kvcEnsure() {
+    var root = document.getElementById('kv-chapters');
+    if (!root || root.getAttribute('data-kvc') === '1') return;
+    root.setAttribute('data-kvc', '1');
+    var rows = root.querySelectorAll('.kvc-row');
+    // на старте выбрана единственная открытая глава
+    var start = 0;
+    Array.prototype.forEach.call(rows, function (r, i) {
+      if (r.classList.contains('is-open')) start = i;
+    });
+    kvcApply(root, start);
+    // пересобираем после подгрузки шрифтов и на смену размера окна
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(function () { kvcApply(root, root.kvcFocus || start); }).catch(function () {});
+    }
+    var onResize = function () {
+      if (!root.isConnected) { window.removeEventListener('resize', onResize); return; }
+      kvcApply(root, root.kvcFocus || start);
+    };
+    window.addEventListener('resize', onResize);
+
+    root.addEventListener('wheel', function (e) {
+      e.preventDefault();
+      if (root.kvcLock) return;
+      root.kvcLock = true;
+      setTimeout(function () { root.kvcLock = false; }, 180);
+      kvcMove(root, e.deltaY > 0 ? 1 : -1);
+    }, { passive: false });
+
+    var y0 = null;
+    root.addEventListener('touchstart', function (e) { y0 = e.touches[0].clientY; }, { passive: true });
+    root.addEventListener('touchend', function (e) {
+      if (y0 === null) return;
+      var dy = (e.changedTouches[0].clientY - y0);
+      y0 = null;
+      if (Math.abs(dy) > 28) kvcMove(root, dy < 0 ? 1 : -1);
+    }, { passive: true });
+
+    document.addEventListener('keydown', function (e) {
+      if (!document.getElementById('kv-chapters')) return;
+      if (e.key === 'ArrowDown') { e.preventDefault(); kvcMove(root, 1); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); kvcMove(root, -1); }
+      else if (e.key === 'Enter') {
+        var f = root.querySelectorAll('.kvc-row')[root.kvcFocus || 0];
+        var link = f && f.querySelector('tw-link, .tw-link');
+        if (link) link.click();
+      }
+    });
+
+    Array.prototype.forEach.call(rows, function (r, i) {
+      r.addEventListener('click', function (e) {
+        // по кнопке «ИГРАТЬ» пропускаем — её обрабатывает сам движок
+        if (e.target && e.target.closest && e.target.closest('tw-link, .tw-link')) return;
+        if (i !== (root.kvcFocus || 0)) { e.stopPropagation(); kvcApply(root, i); }
+      });
+    });
+  }
+
   // Harlowe держит содержимое нового пассажа в обёртке перехода и
   // разворачивает её только через 0.8 с. Смена родителя перезапускает
   // анимации, и экраны меню проигрывались дважды — вынимаем их сами.
@@ -5614,13 +5716,18 @@ window.ctRenderLine = function (idx) {
   var KV_MUSIC = 'https://lambda.vgmtreasurechest.com/soundtracks/new-danganronpa-v3-o.s.t.-white/pmqtvwxw/1-02.%20Danganronpa%21%20V3%21.mp3';
   var kvAudio = null;
   function kvMusicKick() { if (kvAudio) kvAudio.play().catch(function () {}); }
-  var KV_FADE_MS = 1300;
+  // Уход темы меню и подъём темы главы — по три с лишним секунды:
+  // на коротком затухании переход слышался обрывом.
+  var KV_FADE_MS = 3200;
+  var KV_IN_MS = 3200;
   function kvMusicStop() {
     if (!kvAudio) return;
     var a = kvAudio;
     kvAudio = null;
     document.removeEventListener('pointerdown', kvMusicKick, true);
     document.removeEventListener('keydown', kvMusicKick, true);
+    // тема главы, которая сейчас вступит, поднимается так же неспешно
+    window.kvSlowIn = true;
     // Уход по кривой, а не линейкой: линейное затухание на слух обрывается
     // у самого конца, и переход в тему главы получался резким.
     var from = a.volume, t0 = performance.now();
@@ -5647,6 +5754,7 @@ window.ctRenderLine = function (idx) {
 
   function runUpdates() {
     kvUnwrapScreen();
+    kvcEnsure();
     checkAndPlay();
     kvMusicEnsure();
     smEnsure();
