@@ -640,7 +640,12 @@
   var sfxCorrect = makeSfxPool('https://github.com/hwhyssjej/game-audio/raw/refs/heads/main/%D0%BE%D0%BF%D1%80%D0%BE%D0%B2%D0%B5%D1%80%D0%B6%D0%B5%D0%BD%D0%B8%D0%B5.mp3', 0.6, 2);
 
   document.addEventListener('click', function (e) {
-    if (e.target.closest && e.target.closest('.dialogue-clickzone')) sfxAdvance.play();
+    if (!(e.target.closest && e.target.closest('.dialogue-clickzone'))) return;
+    // Последний клик закрывает окно. Он идёт молча: звук перелистывания на
+    // нём звучал лишним щелчком перед плавным уходом окна.
+    var tr = document.getElementById('dialogue-tracker');
+    if (tr && tr.textContent.trim() === 'true') return;
+    sfxAdvance.play();
   }, true);
 
   // ============================================================
@@ -1257,6 +1262,34 @@ window.ctRenderLine = function (idx) {
   // половину суда. Без этого загрузка с любого места суда возвращала
   // игрока к самой первой реплике — состояние Harlowe одно и то же на
   // весь пассаж, а всё остальное живёт в JS.
+  // Собранные улики движок в запись не кладёт: их список пишется в
+  // пассаже-шапке, а такие переменные в слот не попадают — после загрузки
+  // все улики оказывались несобранными. Поэтому кладём их рядом со слотом
+  // сами, тем же способом, что и позицию в суде.
+  function ctCluesSave(slot) {
+    try {
+      localStorage.setItem('carnage-clues-' + slot, JSON.stringify({
+        main:  Array.from(clueEver('main')),
+        shin:  Array.from(clueEver('shin')),
+        dmain: Array.from(dialogueEver('main')),
+        dshin: Array.from(dialogueEver('shin'))
+      }));
+    } catch (e) {}
+  }
+  function ctCluesLoad(slot) {
+    try {
+      var raw = localStorage.getItem('carnage-clues-' + slot);
+      if (!raw) return;
+      var d = JSON.parse(raw);
+      if (!d) return;
+      (d.main  || []).forEach(function (id) { clueEver('main').add(id); });
+      (d.shin  || []).forEach(function (id) { clueEver('shin').add(id); });
+      (d.dmain || []).forEach(function (id) { dialogueEver('main').add(id); });
+      (d.dshin || []).forEach(function (id) { dialogueEver('shin').add(id); });
+      // пометки на пассаже расставит reconcileSpots из общего обновления
+    } catch (e) {}
+  }
+
   function ctSaveSlotOf(link) {
     var row = link.closest && link.closest('.save-modal-row');
     return row ? smRowSlot(row) : null;
@@ -1333,6 +1366,9 @@ window.ctRenderLine = function (idx) {
         var root = document.getElementById('save-modal-overlay');
         if (root) smRefresh(root);
       }, 40);
+      ctCluesSave(slot);
+    } else if (kind === 'Загрузить') {
+      ctCluesLoad(slot);
     }
     try {
       if (kind === 'Сохранить') {
@@ -5611,10 +5647,10 @@ window.ctRenderLine = function (idx) {
   // экранные координаты врут.
   // ============================================================
   var KVC_MAX_D = 3;
-  var KVC_SCALE = [1, 0.84, 0.7, 0.6];   // должно совпадать с --s в стилях
-  function kvcMargin(row, H) {
+  var KVC_K = [1, 0.86, 0.74, 0.66];   // должно совпадать с --k в стилях
+  function kvcK(row) {
     var d = Math.min(KVC_MAX_D, parseInt(row.getAttribute('data-d'), 10) || 0);
-    return (KVC_SCALE[d] - 1) * H / 2;
+    return KVC_K[d];
   }
   function kvcApply(root, focus) {
     var rows = root.querySelectorAll('.kvc-row');
@@ -5628,15 +5664,23 @@ window.ctRenderLine = function (idx) {
       r.setAttribute('data-d', String(d));
       r.classList.toggle('is-focus', i === focus);
     });
-    // Поля строк тоже анимируются, поэтому в момент вызова вёрстка ещё
-    // старая и offsetTop врёт. Считаем конечное положение сами: высота
-    // строки постоянна, а поля выводятся из масштаба — таблица та же, что
-    // в стилях.
-    var H = rows[0].offsetHeight;
+    // Высоты строк анимируются, поэтому в момент вызова вёрстка ещё старая
+    // и offsetTop врёт. Считаем конечное положение сами: базовая высота
+    // лежит в переменной --kvc-h, множитель — в таблице выше.
+    // Высоту строки в px из --kvc-h не вытащить: значение остаётся
+    // формулой clamp(). Держим в ленте невидимый эталон той же высоты и
+    // без анимации — он и даёт базу для расчёта.
+    var probe = track.querySelector('.kvc-probe');
+    if (!probe) {
+      probe = document.createElement('div');
+      probe.className = 'kvc-probe';
+      track.appendChild(probe);
+    }
+    var H = probe.offsetHeight || rows[0].offsetHeight;
     var G = parseFloat(getComputedStyle(track).rowGap) || 0;
     var center = 0;
-    for (var i = 0; i < focus; i++) center += H + 2 * kvcMargin(rows[i], H) + G;
-    center += kvcMargin(rows[focus], H) + H / 2;
+    for (var i = 0; i < focus; i++) center += H * kvcK(rows[i]) + G;
+    center += H * kvcK(rows[focus]) / 2;
     var y = view.clientHeight / 2 - center;
     track.style.transform = 'translateY(' + Math.round(y) + 'px)';
   }
@@ -5716,9 +5760,8 @@ window.ctRenderLine = function (idx) {
   var KV_MUSIC = 'https://lambda.vgmtreasurechest.com/soundtracks/new-danganronpa-v3-o.s.t.-white/pmqtvwxw/1-02.%20Danganronpa%21%20V3%21.mp3';
   var kvAudio = null;
   function kvMusicKick() { if (kvAudio) kvAudio.play().catch(function () {}); }
-  // Уход темы меню и подъём темы главы — по три с лишним секунды:
-  // на коротком затухании переход слышался обрывом.
-  var KV_FADE_MS = 3200;
+  // Тема меню обрывается мгновенно, а тема главы поднимается с тишины
+  // больше трёх секунд.
   var KV_IN_MS = 3200;
   function kvMusicStop() {
     if (!kvAudio) return;
@@ -5728,16 +5771,9 @@ window.ctRenderLine = function (idx) {
     document.removeEventListener('keydown', kvMusicKick, true);
     // тема главы, которая сейчас вступит, поднимается так же неспешно
     window.kvSlowIn = true;
-    // Уход по кривой, а не линейкой: линейное затухание на слух обрывается
-    // у самого конца, и переход в тему главы получался резким.
-    var from = a.volume, t0 = performance.now();
-    (function step(now) {
-      var q = Math.min(1, ((now || performance.now()) - t0) / KV_FADE_MS);
-      var e = 1 - Math.pow(1 - q, 2);
-      try { a.volume = Math.max(0, from * (1 - e)); } catch (err) {}
-      if (q < 1) requestAnimationFrame(step);
-      else { try { a.pause(); a.src = ''; } catch (err) {} }
-    })();
+    // Тема меню обрывается сразу, без затухания — так задумано: новая
+    // тема начинает подниматься с тишины.
+    try { a.pause(); a.src = ''; } catch (err) {}
   }
   function kvMusicEnsure() {
     if (!document.querySelector('.kv-screen')) { kvMusicStop(); return; }

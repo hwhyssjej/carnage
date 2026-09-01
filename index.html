@@ -7195,7 +7195,7 @@ tw-passage .pf-think {
 }
 @keyframes kvDrift { from { transform: translate3d(-2%, -1%, 0); } to { transform: translate3d(2%, 1%, 0); } }
 
-#kv-title .kv-mark { position: relative !important; width: clamp(120px, 26vw, 190px) !important; }
+#kv-title .kv-mark { position: relative !important; width: clamp(150px, 32vw, 240px) !important; }
 #kv-title .kv-mark svg { display: block !important; width: 100% !important; height: auto !important; overflow: visible !important; }
 #kv-title .kv-ring {
   fill: rgba(10,4,20,0.75) !important;
@@ -7405,7 +7405,7 @@ html:has(tw-story[tags*="kv-start"]) tw-sidebar { display: none !important; }
    раньше «СОХРАНЕНИЯ» уходили под нижний край. */
 @media (max-height: 920px) {
   #kv-title { gap: clamp(6px, 1.1vh, 14px) !important; }
-  #kv-title .kv-mark { width: clamp(84px, 19vh, 150px) !important; }
+  #kv-title .kv-mark { width: clamp(120px, 27vh, 230px) !important; }
   #kv-title .kv-name { font-size: clamp(28px, 8vh, 66px) !important; }
   #kv-title .kv-sub { font-size: clamp(10px, 1.2vh, 14px) !important; }
   #kv-title .kv-go { margin-top: clamp(6px, 1.4vh, 16px) !important; }
@@ -7800,71 +7800,117 @@ html {
 
 /* ==========================================================================
    ЛЕНТА ГЛАВ
-   Выбранная строка в центре и во весь размер, соседние мельче, дальние —
-   ещё мельче. Масштаб задаётся переменной --s, а отрицательные поля
-   подтягивают вёрстку под уменьшенный размер: иначе между мелкими
-   строками зияли бы пустые полосы.
+   Выбранная строка в центре и крупнее всех, соседние мельче, дальние ещё
+   мельче. Меняются высота и кегль, а ширина у всех строк одна — так левый
+   край не пляшет и список читается как список, а не как веер.
+   Множитель --k держится в одной таблице со скриптом: он же считает, куда
+   сдвинуть ленту, чтобы выбранная строка встала по центру окна.
    ========================================================================== */
 #kv-chapters .kvc-view {
   position: relative !important;
-  width: min(94vw, 620px) !important;
-  height: min(64vh, 470px) !important;
+  width: min(94vw, 720px) !important;
+  height: min(66vh, 540px) !important;
   overflow: hidden !important;
-  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 16%, #000 84%, transparent 100%) !important;
-  mask-image: linear-gradient(180deg, transparent 0%, #000 16%, #000 84%, transparent 100%) !important;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 14%, #000 86%, transparent 100%) !important;
+  mask-image: linear-gradient(180deg, transparent 0%, #000 14%, #000 86%, transparent 100%) !important;
 }
 #kv-chapters .kvc-track {
   position: relative !important;
   display: flex !important;
   flex-direction: column !important;
-  gap: clamp(6px, 1vh, 12px) !important;
-  padding: 0 4px !important;
+  gap: clamp(6px, 1.1vh, 12px) !important;
+  padding: 0 6px !important;
   transition: transform 0.42s cubic-bezier(.2,.8,.25,1) !important;
   will-change: transform;
 }
 #kv-chapters .kvc-row {
-  --s: 0.58;
-  --kvc-h: clamp(54px, 8.4vh, 78px) !important;
-  height: var(--kvc-h) !important;
-  max-height: none !important;
-  padding: 0 clamp(12px, 2.4vw, 20px) !important;
-  margin-block: calc((var(--s) - 1) * var(--kvc-h) / 2) !important;
-  transform: scale(var(--s)) !important;
-  transform-origin: 50% 50% !important;
-  opacity: 0.26;
+  --k: 0.66;
+  --kvc-h: clamp(56px, 9vh, 92px) !important;
+  display: grid !important;
+  grid-template-columns: calc(var(--kvc-h) * var(--k) * 0.62) minmax(0, 1fr) auto !important;
+  align-items: center !important;
+  gap: clamp(6px, 1.4vw, 16px) !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  height: calc(var(--kvc-h) * var(--k)) !important;
+  padding: 0 clamp(12px, 1.8vw, 22px) !important;
+  margin: 0 !important;
+  transform: none !important;
+  border-radius: 14px !important;
+  opacity: 0.28;
   animation: none !important;
-  transition: transform 0.42s cubic-bezier(.2,.8,.25,1),
-              margin 0.42s cubic-bezier(.2,.8,.25,1),
-              opacity 0.42s ease, border-color 0.3s ease, box-shadow 0.3s ease !important;
-  cursor: pointer !important;
+  transition: height 0.42s cubic-bezier(.2,.8,.25,1), opacity 0.42s ease,
+              border-color 0.3s ease, box-shadow 0.3s ease !important;
+  cursor: default !important;
 }
-#kv-chapters .kvc-row[data-d="0"] { --s: 1;    opacity: 1; }
-#kv-chapters .kvc-row[data-d="1"] { --s: 0.84; opacity: 0.7; }
-#kv-chapters .kvc-row[data-d="2"] { --s: 0.7;  opacity: 0.45; }
-#kv-chapters .kvc-row[data-d="3"] { --s: 0.6;  opacity: 0.26; }
-/* Закрытая глава: цветом и обесцвечиванием, без прозрачности — она занята
-   под расстояние от центра. */
+#kv-chapters .kvc-row[data-d="0"] { --k: 1;    opacity: 1; }
+#kv-chapters .kvc-row[data-d="1"] { --k: 0.86; opacity: 0.72; }
+#kv-chapters .kvc-row[data-d="2"] { --k: 0.74; opacity: 0.46; }
+#kv-chapters .kvc-row[data-d="3"] { --k: 0.66; opacity: 0.28; }
+/* Кегль тоже идёт от множителя — строка целиком «уезжает вглубь» */
+#kv-chapters .kvc-num {
+  font-size: calc(clamp(17px, 2.6vw, 27px) * var(--k)) !important;
+  line-height: 1 !important;
+  transition: font-size 0.42s cubic-bezier(.2,.8,.25,1) !important;
+}
+#kv-chapters .kvc-name {
+  font-size: calc(clamp(13px, 1.9vw, 20px) * var(--k)) !important;
+  line-height: 1.15 !important;
+  transition: font-size 0.42s cubic-bezier(.2,.8,.25,1) !important;
+}
+#kv-chapters .kvc-sub { font-size: calc(clamp(10px, 1.2vw, 14px) * var(--k)) !important; }
+#kv-chapters .kvc-lock {
+  font-size: calc(clamp(10px, 1.1vw, 13px) * var(--k)) !important;
+  transition: font-size 0.42s cubic-bezier(.2,.8,.25,1) !important;
+}
+#kv-chapters .kvc-go tw-link,
+#kv-chapters .kvc-go .enchantment-link {
+  padding: calc(9px * var(--k)) calc(clamp(16px, 3vw, 30px) * var(--k)) !important;
+  font-size: calc(clamp(11px, 1.4vw, 15px) * var(--k)) !important;
+  transition: padding 0.42s ease, font-size 0.42s ease, color 0.2s ease,
+              box-shadow 0.2s ease, transform 0.2s ease !important;
+}
+/* Закрытая глава: обычный курсор, никакого «стоп» — просто не нажимается */
 #kv-chapters .kvc-row.is-locked {
-  opacity: 0.26;
   filter: grayscale(0.75) !important;
+  cursor: default !important;
 }
 #kv-chapters .kvc-row.is-locked[data-d="0"] { opacity: 0.85; }
 #kv-chapters .kvc-row.is-locked[data-d="1"] { opacity: 0.6; }
-#kv-chapters .kvc-row.is-locked[data-d="2"] { opacity: 0.38; }
-#kv-chapters .kvc-row.is-open  { cursor: default !important; }
+#kv-chapters .kvc-row.is-locked[data-d="2"] { opacity: 0.4; }
 #kv-chapters .kvc-row.is-focus.is-open {
-  box-shadow: 0 0 26px rgba(255,43,208,0.5), inset 0 0 22px rgba(255,43,208,0.1) !important;
+  box-shadow: 0 0 26px rgba(255,43,208,0.45), inset 0 0 22px rgba(255,43,208,0.1) !important;
 }
 #kv-chapters .kvc-row:not(.is-focus) { box-shadow: none !important; }
-/* Подсказка о листании */
-#kv-chapters .kvc-back { margin-top: clamp(2px, 1vh, 10px) !important; }
+#kv-chapters .kvc-back { margin-top: clamp(4px, 1.4vh, 14px) !important; }
+
 @media (max-height: 820px) and (min-width: 621px) {
-  #kv-chapters .kvc-view { height: min(58vh, 420px) !important; }
-  #kv-chapters .kvc-row { --kvc-h: clamp(50px, 7.6vh, 70px) !important; }
+  #kv-chapters .kvc-view { height: min(62vh, 460px) !important; }
+  #kv-chapters .kvc-row { --kvc-h: clamp(52px, 8.4vh, 80px) !important; }
+  #kv-chapters .kvc-cap { font-size: clamp(18px, 3.4vw, 32px) !important; }
 }
 @media (max-width: 620px) {
   #kv-chapters .kvc-view { width: 94vw !important; height: min(58vh, 430px) !important; }
-  #kv-chapters .kvc-row { --kvc-h: clamp(50px, 8vh, 66px) !important; padding: 0 11px !important; }
+  #kv-chapters .kvc-row { --kvc-h: clamp(50px, 8vh, 68px) !important; padding: 0 12px !important; }
+}
+
+/* Невидимый эталон строки: по нему скрипт узнаёт базовую высоту, потому
+   что из clamp() в переменной значение в пикселях не достать. */
+#kv-chapters .kvc-probe {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 0 !important;
+  height: clamp(56px, 9vh, 92px) !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  transition: none !important;
+}
+@media (max-height: 820px) and (min-width: 621px) {
+  #kv-chapters .kvc-probe { height: clamp(52px, 8.4vh, 80px) !important; }
+}
+@media (max-width: 620px) {
+  #kv-chapters .kvc-probe { height: clamp(50px, 8vh, 68px) !important; }
 }
 </style><script role="script" id="twine-user-script" type="text/twine-javascript">(function () {
 
@@ -8508,7 +8554,12 @@ html {
   var sfxCorrect = makeSfxPool('https://github.com/hwhyssjej/game-audio/raw/refs/heads/main/%D0%BE%D0%BF%D1%80%D0%BE%D0%B2%D0%B5%D1%80%D0%B6%D0%B5%D0%BD%D0%B8%D0%B5.mp3', 0.6, 2);
 
   document.addEventListener('click', function (e) {
-    if (e.target.closest && e.target.closest('.dialogue-clickzone')) sfxAdvance.play();
+    if (!(e.target.closest && e.target.closest('.dialogue-clickzone'))) return;
+    // Последний клик закрывает окно. Он идёт молча: звук перелистывания на
+    // нём звучал лишним щелчком перед плавным уходом окна.
+    var tr = document.getElementById('dialogue-tracker');
+    if (tr && tr.textContent.trim() === 'true') return;
+    sfxAdvance.play();
   }, true);
 
   // ============================================================
@@ -9125,6 +9176,34 @@ window.ctRenderLine = function (idx) {
   // половину суда. Без этого загрузка с любого места суда возвращала
   // игрока к самой первой реплике — состояние Harlowe одно и то же на
   // весь пассаж, а всё остальное живёт в JS.
+  // Собранные улики движок в запись не кладёт: их список пишется в
+  // пассаже-шапке, а такие переменные в слот не попадают — после загрузки
+  // все улики оказывались несобранными. Поэтому кладём их рядом со слотом
+  // сами, тем же способом, что и позицию в суде.
+  function ctCluesSave(slot) {
+    try {
+      localStorage.setItem('carnage-clues-' + slot, JSON.stringify({
+        main:  Array.from(clueEver('main')),
+        shin:  Array.from(clueEver('shin')),
+        dmain: Array.from(dialogueEver('main')),
+        dshin: Array.from(dialogueEver('shin'))
+      }));
+    } catch (e) {}
+  }
+  function ctCluesLoad(slot) {
+    try {
+      var raw = localStorage.getItem('carnage-clues-' + slot);
+      if (!raw) return;
+      var d = JSON.parse(raw);
+      if (!d) return;
+      (d.main  || []).forEach(function (id) { clueEver('main').add(id); });
+      (d.shin  || []).forEach(function (id) { clueEver('shin').add(id); });
+      (d.dmain || []).forEach(function (id) { dialogueEver('main').add(id); });
+      (d.dshin || []).forEach(function (id) { dialogueEver('shin').add(id); });
+      // пометки на пассаже расставит reconcileSpots из общего обновления
+    } catch (e) {}
+  }
+
   function ctSaveSlotOf(link) {
     var row = link.closest && link.closest('.save-modal-row');
     return row ? smRowSlot(row) : null;
@@ -9201,6 +9280,9 @@ window.ctRenderLine = function (idx) {
         var root = document.getElementById('save-modal-overlay');
         if (root) smRefresh(root);
       }, 40);
+      ctCluesSave(slot);
+    } else if (kind === 'Загрузить') {
+      ctCluesLoad(slot);
     }
     try {
       if (kind === 'Сохранить') {
@@ -13479,10 +13561,10 @@ window.ctRenderLine = function (idx) {
   // экранные координаты врут.
   // ============================================================
   var KVC_MAX_D = 3;
-  var KVC_SCALE = [1, 0.84, 0.7, 0.6];   // должно совпадать с --s в стилях
-  function kvcMargin(row, H) {
+  var KVC_K = [1, 0.86, 0.74, 0.66];   // должно совпадать с --k в стилях
+  function kvcK(row) {
     var d = Math.min(KVC_MAX_D, parseInt(row.getAttribute('data-d'), 10) || 0);
-    return (KVC_SCALE[d] - 1) * H / 2;
+    return KVC_K[d];
   }
   function kvcApply(root, focus) {
     var rows = root.querySelectorAll('.kvc-row');
@@ -13496,15 +13578,23 @@ window.ctRenderLine = function (idx) {
       r.setAttribute('data-d', String(d));
       r.classList.toggle('is-focus', i === focus);
     });
-    // Поля строк тоже анимируются, поэтому в момент вызова вёрстка ещё
-    // старая и offsetTop врёт. Считаем конечное положение сами: высота
-    // строки постоянна, а поля выводятся из масштаба — таблица та же, что
-    // в стилях.
-    var H = rows[0].offsetHeight;
+    // Высоты строк анимируются, поэтому в момент вызова вёрстка ещё старая
+    // и offsetTop врёт. Считаем конечное положение сами: базовая высота
+    // лежит в переменной --kvc-h, множитель — в таблице выше.
+    // Высоту строки в px из --kvc-h не вытащить: значение остаётся
+    // формулой clamp(). Держим в ленте невидимый эталон той же высоты и
+    // без анимации — он и даёт базу для расчёта.
+    var probe = track.querySelector('.kvc-probe');
+    if (!probe) {
+      probe = document.createElement('div');
+      probe.className = 'kvc-probe';
+      track.appendChild(probe);
+    }
+    var H = probe.offsetHeight || rows[0].offsetHeight;
     var G = parseFloat(getComputedStyle(track).rowGap) || 0;
     var center = 0;
-    for (var i = 0; i < focus; i++) center += H + 2 * kvcMargin(rows[i], H) + G;
-    center += kvcMargin(rows[focus], H) + H / 2;
+    for (var i = 0; i < focus; i++) center += H * kvcK(rows[i]) + G;
+    center += H * kvcK(rows[focus]) / 2;
     var y = view.clientHeight / 2 - center;
     track.style.transform = 'translateY(' + Math.round(y) + 'px)';
   }
@@ -13584,9 +13674,8 @@ window.ctRenderLine = function (idx) {
   var KV_MUSIC = 'https://lambda.vgmtreasurechest.com/soundtracks/new-danganronpa-v3-o.s.t.-white/pmqtvwxw/1-02.%20Danganronpa%21%20V3%21.mp3';
   var kvAudio = null;
   function kvMusicKick() { if (kvAudio) kvAudio.play().catch(function () {}); }
-  // Уход темы меню и подъём темы главы — по три с лишним секунды:
-  // на коротком затухании переход слышался обрывом.
-  var KV_FADE_MS = 3200;
+  // Тема меню обрывается мгновенно, а тема главы поднимается с тишины
+  // больше трёх секунд.
   var KV_IN_MS = 3200;
   function kvMusicStop() {
     if (!kvAudio) return;
@@ -13596,16 +13685,9 @@ window.ctRenderLine = function (idx) {
     document.removeEventListener('keydown', kvMusicKick, true);
     // тема главы, которая сейчас вступит, поднимается так же неспешно
     window.kvSlowIn = true;
-    // Уход по кривой, а не линейкой: линейное затухание на слух обрывается
-    // у самого конца, и переход в тему главы получался резким.
-    var from = a.volume, t0 = performance.now();
-    (function step(now) {
-      var q = Math.min(1, ((now || performance.now()) - t0) / KV_FADE_MS);
-      var e = 1 - Math.pow(1 - q, 2);
-      try { a.volume = Math.max(0, from * (1 - e)); } catch (err) {}
-      if (q < 1) requestAnimationFrame(step);
-      else { try { a.pause(); a.src = ''; } catch (err) {} }
-    })();
+    // Тема меню обрывается сразу, без затухания — так задумано: новая
+    // тема начинает подниматься с тишины.
+    try { a.pause(); a.src = ''; } catch (err) {}
   }
   function kvMusicEnsure() {
     if (!document.querySelector('.kv-screen')) { kvMusicStop(); return; }
@@ -16273,9 +16355,9 @@ if (window.initClassTrialDialogue) window.initClassTrialDialogue();
           &lt;stop offset=&quot;1&quot; stop-color=&quot;#00e5ff&quot;/&gt;
         &lt;/linearGradient&gt;
       &lt;/defs&gt;
-      &lt;path class=&quot;kv-ring&quot; d=&quot;M60 6 L110 33 L110 87 L60 114 L10 87 L10 33 Z&quot;/&gt;
-      &lt;path class=&quot;kv-stem&quot; d=&quot;M42 26 L42 94&quot;/&gt;
-      &lt;path class=&quot;kv-arm&quot;  d=&quot;M86 26 L46 60 L90 94&quot;/&gt;
+      &lt;path class=&quot;kv-ring&quot; d=&quot;M60 6 L114 33 L114 87 L60 114 L6 87 L6 33 Z&quot;/&gt;
+      &lt;path class=&quot;kv-stem&quot; d=&quot;M44 30 L44 90&quot;/&gt;
+      &lt;path class=&quot;kv-arm&quot;  d=&quot;M84 30 L48 60 L88 90&quot;/&gt;
     &lt;/svg&gt;
   &lt;/div&gt;
   &lt;h1 class=&quot;kv-name&quot;&gt;КАРНАДЖ&lt;/h1&gt;

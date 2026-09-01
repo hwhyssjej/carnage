@@ -7178,7 +7178,7 @@ tw-passage .pf-think {
 }
 @keyframes kvDrift { from { transform: translate3d(-2%, -1%, 0); } to { transform: translate3d(2%, 1%, 0); } }
 
-#kv-title .kv-mark { position: relative !important; width: clamp(120px, 26vw, 190px) !important; }
+#kv-title .kv-mark { position: relative !important; width: clamp(150px, 32vw, 240px) !important; }
 #kv-title .kv-mark svg { display: block !important; width: 100% !important; height: auto !important; overflow: visible !important; }
 #kv-title .kv-ring {
   fill: rgba(10,4,20,0.75) !important;
@@ -7388,7 +7388,7 @@ html:has(tw-story[tags*="kv-start"]) tw-sidebar { display: none !important; }
    раньше «СОХРАНЕНИЯ» уходили под нижний край. */
 @media (max-height: 920px) {
   #kv-title { gap: clamp(6px, 1.1vh, 14px) !important; }
-  #kv-title .kv-mark { width: clamp(84px, 19vh, 150px) !important; }
+  #kv-title .kv-mark { width: clamp(120px, 27vh, 230px) !important; }
   #kv-title .kv-name { font-size: clamp(28px, 8vh, 66px) !important; }
   #kv-title .kv-sub { font-size: clamp(10px, 1.2vh, 14px) !important; }
   #kv-title .kv-go { margin-top: clamp(6px, 1.4vh, 16px) !important; }
@@ -7783,69 +7783,115 @@ html {
 
 /* ==========================================================================
    ЛЕНТА ГЛАВ
-   Выбранная строка в центре и во весь размер, соседние мельче, дальние —
-   ещё мельче. Масштаб задаётся переменной --s, а отрицательные поля
-   подтягивают вёрстку под уменьшенный размер: иначе между мелкими
-   строками зияли бы пустые полосы.
+   Выбранная строка в центре и крупнее всех, соседние мельче, дальние ещё
+   мельче. Меняются высота и кегль, а ширина у всех строк одна — так левый
+   край не пляшет и список читается как список, а не как веер.
+   Множитель --k держится в одной таблице со скриптом: он же считает, куда
+   сдвинуть ленту, чтобы выбранная строка встала по центру окна.
    ========================================================================== */
 #kv-chapters .kvc-view {
   position: relative !important;
-  width: min(94vw, 620px) !important;
-  height: min(64vh, 470px) !important;
+  width: min(94vw, 720px) !important;
+  height: min(66vh, 540px) !important;
   overflow: hidden !important;
-  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 16%, #000 84%, transparent 100%) !important;
-  mask-image: linear-gradient(180deg, transparent 0%, #000 16%, #000 84%, transparent 100%) !important;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 14%, #000 86%, transparent 100%) !important;
+  mask-image: linear-gradient(180deg, transparent 0%, #000 14%, #000 86%, transparent 100%) !important;
 }
 #kv-chapters .kvc-track {
   position: relative !important;
   display: flex !important;
   flex-direction: column !important;
-  gap: clamp(6px, 1vh, 12px) !important;
-  padding: 0 4px !important;
+  gap: clamp(6px, 1.1vh, 12px) !important;
+  padding: 0 6px !important;
   transition: transform 0.42s cubic-bezier(.2,.8,.25,1) !important;
   will-change: transform;
 }
 #kv-chapters .kvc-row {
-  --s: 0.58;
-  --kvc-h: clamp(54px, 8.4vh, 78px) !important;
-  height: var(--kvc-h) !important;
-  max-height: none !important;
-  padding: 0 clamp(12px, 2.4vw, 20px) !important;
-  margin-block: calc((var(--s) - 1) * var(--kvc-h) / 2) !important;
-  transform: scale(var(--s)) !important;
-  transform-origin: 50% 50% !important;
-  opacity: 0.26;
+  --k: 0.66;
+  --kvc-h: clamp(56px, 9vh, 92px) !important;
+  display: grid !important;
+  grid-template-columns: calc(var(--kvc-h) * var(--k) * 0.62) minmax(0, 1fr) auto !important;
+  align-items: center !important;
+  gap: clamp(6px, 1.4vw, 16px) !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  height: calc(var(--kvc-h) * var(--k)) !important;
+  padding: 0 clamp(12px, 1.8vw, 22px) !important;
+  margin: 0 !important;
+  transform: none !important;
+  border-radius: 14px !important;
+  opacity: 0.28;
   animation: none !important;
-  transition: transform 0.42s cubic-bezier(.2,.8,.25,1),
-              margin 0.42s cubic-bezier(.2,.8,.25,1),
-              opacity 0.42s ease, border-color 0.3s ease, box-shadow 0.3s ease !important;
-  cursor: pointer !important;
+  transition: height 0.42s cubic-bezier(.2,.8,.25,1), opacity 0.42s ease,
+              border-color 0.3s ease, box-shadow 0.3s ease !important;
+  cursor: default !important;
 }
-#kv-chapters .kvc-row[data-d="0"] { --s: 1;    opacity: 1; }
-#kv-chapters .kvc-row[data-d="1"] { --s: 0.84; opacity: 0.7; }
-#kv-chapters .kvc-row[data-d="2"] { --s: 0.7;  opacity: 0.45; }
-#kv-chapters .kvc-row[data-d="3"] { --s: 0.6;  opacity: 0.26; }
-/* Закрытая глава: цветом и обесцвечиванием, без прозрачности — она занята
-   под расстояние от центра. */
+#kv-chapters .kvc-row[data-d="0"] { --k: 1;    opacity: 1; }
+#kv-chapters .kvc-row[data-d="1"] { --k: 0.86; opacity: 0.72; }
+#kv-chapters .kvc-row[data-d="2"] { --k: 0.74; opacity: 0.46; }
+#kv-chapters .kvc-row[data-d="3"] { --k: 0.66; opacity: 0.28; }
+/* Кегль тоже идёт от множителя — строка целиком «уезжает вглубь» */
+#kv-chapters .kvc-num {
+  font-size: calc(clamp(17px, 2.6vw, 27px) * var(--k)) !important;
+  line-height: 1 !important;
+  transition: font-size 0.42s cubic-bezier(.2,.8,.25,1) !important;
+}
+#kv-chapters .kvc-name {
+  font-size: calc(clamp(13px, 1.9vw, 20px) * var(--k)) !important;
+  line-height: 1.15 !important;
+  transition: font-size 0.42s cubic-bezier(.2,.8,.25,1) !important;
+}
+#kv-chapters .kvc-sub { font-size: calc(clamp(10px, 1.2vw, 14px) * var(--k)) !important; }
+#kv-chapters .kvc-lock {
+  font-size: calc(clamp(10px, 1.1vw, 13px) * var(--k)) !important;
+  transition: font-size 0.42s cubic-bezier(.2,.8,.25,1) !important;
+}
+#kv-chapters .kvc-go tw-link,
+#kv-chapters .kvc-go .enchantment-link {
+  padding: calc(9px * var(--k)) calc(clamp(16px, 3vw, 30px) * var(--k)) !important;
+  font-size: calc(clamp(11px, 1.4vw, 15px) * var(--k)) !important;
+  transition: padding 0.42s ease, font-size 0.42s ease, color 0.2s ease,
+              box-shadow 0.2s ease, transform 0.2s ease !important;
+}
+/* Закрытая глава: обычный курсор, никакого «стоп» — просто не нажимается */
 #kv-chapters .kvc-row.is-locked {
-  opacity: 0.26;
   filter: grayscale(0.75) !important;
+  cursor: default !important;
 }
 #kv-chapters .kvc-row.is-locked[data-d="0"] { opacity: 0.85; }
 #kv-chapters .kvc-row.is-locked[data-d="1"] { opacity: 0.6; }
-#kv-chapters .kvc-row.is-locked[data-d="2"] { opacity: 0.38; }
-#kv-chapters .kvc-row.is-open  { cursor: default !important; }
+#kv-chapters .kvc-row.is-locked[data-d="2"] { opacity: 0.4; }
 #kv-chapters .kvc-row.is-focus.is-open {
-  box-shadow: 0 0 26px rgba(255,43,208,0.5), inset 0 0 22px rgba(255,43,208,0.1) !important;
+  box-shadow: 0 0 26px rgba(255,43,208,0.45), inset 0 0 22px rgba(255,43,208,0.1) !important;
 }
 #kv-chapters .kvc-row:not(.is-focus) { box-shadow: none !important; }
-/* Подсказка о листании */
-#kv-chapters .kvc-back { margin-top: clamp(2px, 1vh, 10px) !important; }
+#kv-chapters .kvc-back { margin-top: clamp(4px, 1.4vh, 14px) !important; }
+
 @media (max-height: 820px) and (min-width: 621px) {
-  #kv-chapters .kvc-view { height: min(58vh, 420px) !important; }
-  #kv-chapters .kvc-row { --kvc-h: clamp(50px, 7.6vh, 70px) !important; }
+  #kv-chapters .kvc-view { height: min(62vh, 460px) !important; }
+  #kv-chapters .kvc-row { --kvc-h: clamp(52px, 8.4vh, 80px) !important; }
+  #kv-chapters .kvc-cap { font-size: clamp(18px, 3.4vw, 32px) !important; }
 }
 @media (max-width: 620px) {
   #kv-chapters .kvc-view { width: 94vw !important; height: min(58vh, 430px) !important; }
-  #kv-chapters .kvc-row { --kvc-h: clamp(50px, 8vh, 66px) !important; padding: 0 11px !important; }
+  #kv-chapters .kvc-row { --kvc-h: clamp(50px, 8vh, 68px) !important; padding: 0 12px !important; }
+}
+
+/* Невидимый эталон строки: по нему скрипт узнаёт базовую высоту, потому
+   что из clamp() в переменной значение в пикселях не достать. */
+#kv-chapters .kvc-probe {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 0 !important;
+  height: clamp(56px, 9vh, 92px) !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  transition: none !important;
+}
+@media (max-height: 820px) and (min-width: 621px) {
+  #kv-chapters .kvc-probe { height: clamp(52px, 8.4vh, 80px) !important; }
+}
+@media (max-width: 620px) {
+  #kv-chapters .kvc-probe { height: clamp(50px, 8vh, 68px) !important; }
 }
